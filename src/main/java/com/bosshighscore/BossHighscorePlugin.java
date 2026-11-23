@@ -48,6 +48,8 @@ public class BossHighscorePlugin extends Plugin
 	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
 	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
 	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
+	// Chat gets the cooldown message at most this often; alternating fast clicks would otherwise repeat it every other click
+	private static final long COOLDOWN_CHAT_MILLIS = 30_000;
 	private static final String COOLDOWN_TEXT = "Lookup on cooldown, wait 2 seconds between lookups.";
 
 	@Inject
@@ -75,8 +77,7 @@ public class BossHighscorePlugin extends Plugin
 	private NavigationButton navigationButton;
 	private int ticksUntilFriendsRefresh;
 	private boolean friendsRefreshedThisLogin;
-	// One cooldown message per burst of spam clicks; reset once a search goes through
-	private boolean cooldownNotified;
+	private long lastCooldownChatMillis;
 
 	@Override
 	protected void startUp()
@@ -202,15 +203,15 @@ public class BossHighscorePlugin extends Plugin
 
 		if (started)
 		{
-			cooldownNotified = false;
 			return;
 		}
 
-		// The panel always says why; the chat only once per burst of clicks
+		// The panel always says why; the chat at most once per COOLDOWN_CHAT_MILLIS
 		setStatus(COOLDOWN_TEXT);
-		if (!cooldownNotified)
+		long now = System.currentTimeMillis();
+		if (now - lastCooldownChatMillis >= COOLDOWN_CHAT_MILLIS)
 		{
-			cooldownNotified = true;
+			lastCooldownChatMillis = now;
 			chatMessageManager.queue(QueuedMessage.builder()
 				.type(ChatMessageType.GAMEMESSAGE)
 				.runeLiteFormattedMessage("Total Boss KC: " + COOLDOWN_TEXT)
