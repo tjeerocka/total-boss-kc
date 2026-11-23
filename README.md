@@ -3,7 +3,7 @@
 RuneLite plugin. The official hiscores have no total boss kill count, so this adds it up.
 
 - Side panel: search a player for their total boss kills
-- Friends tab: you and your friends ranked by total (top 20), refreshed on login when older than the configured hours
+- Friends tab: you and your friends ranked by total (top 20), looked up automatically the first time; after that only via Refresh friends
 - History tab: players you searched
 - Left-click a name for their top bosses (count set in config)
 
