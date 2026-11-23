@@ -25,6 +25,7 @@ class BossLookupService
 {
 	private static final long SEARCH_SPACING_MILLIS = 2000;
 	private static final long BATCH_SPACING_MILLIS = 1000;
+	static final long ALREADY_QUEUED = -1;
 
 	private final HiscoreClient hiscoreClient;
 	private final ScheduledExecutorService executor;
@@ -39,10 +40,14 @@ class BossLookupService
 		this.executor = executor;
 	}
 
-	/** For searches and Boss lookup. */
-	void lookupSearch(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
+	/**
+	 * For searches and Boss lookup.
+	 *
+	 * @return how long the lookup waits for its turn in milliseconds, or {@link #ALREADY_QUEUED}
+	 */
+	long lookupSearch(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
 	{
-		schedule(name, nextSearchMillis, SEARCH_SPACING_MILLIS, onFound, onMissing);
+		return schedule(name, nextSearchMillis, SEARCH_SPACING_MILLIS, onFound, onMissing);
 	}
 
 	/** For batches like the friends list. */
@@ -51,13 +56,13 @@ class BossLookupService
 		schedule(name, nextBatchMillis, BATCH_SPACING_MILLIS, onFound, onMissing);
 	}
 
-	private void schedule(String name, AtomicLong nextSlotMillis, long spacingMillis, Consumer<PlayerTotals> onFound,
+	private long schedule(String name, AtomicLong nextSlotMillis, long spacingMillis, Consumer<PlayerTotals> onFound,
 		Consumer<String> onMissing)
 	{
 		String key = name.toLowerCase(Locale.ROOT);
 		if (!queued.add(key))
 		{
-			return;
+			return ALREADY_QUEUED;
 		}
 
 		long now = System.currentTimeMillis();
@@ -67,6 +72,7 @@ class BossLookupService
 			queued.remove(key);
 			lookup(name, onFound, onMissing);
 		}, slot - now, TimeUnit.MILLISECONDS);
+		return slot - now;
 	}
 
 	private void lookup(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Friend;
 import net.runelite.api.GameState;
@@ -20,6 +21,8 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -45,6 +48,8 @@ public class BossHighscorePlugin extends Plugin
 	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
 	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
 	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
+	// Spam clicking shows the cooldown message at most this often, so it doesn't flood the chat itself
+	private static final long COOLDOWN_MESSAGE_MILLIS = 2000;
 
 	@Inject
 	private Client client;
@@ -54,6 +59,9 @@ public class BossHighscorePlugin extends Plugin
 
 	@Inject
 	private ClientToolbar clientToolbar;
+
+	@Inject
+	private ChatMessageManager chatMessageManager;
 
 	@Inject
 	private BossHighscoreConfig config;
@@ -68,6 +76,7 @@ public class BossHighscorePlugin extends Plugin
 	private NavigationButton navigationButton;
 	private int ticksUntilFriendsRefresh;
 	private boolean friendsRefreshedThisLogin;
+	private long lastCooldownMessageMillis;
 
 	@Override
 	protected void startUp()
@@ -177,7 +186,7 @@ public class BossHighscorePlugin extends Plugin
 		}
 
 		setStatus("Looking up " + name + "...");
-		lookups.lookupSearch(name, totals ->
+		long waitMillis = lookups.lookupSearch(name, totals ->
 		{
 			if (!totals.hasBossKills())
 			{
@@ -189,6 +198,29 @@ public class BossHighscorePlugin extends Plugin
 			showSearched(totals);
 			setStatus("");
 		}, missing -> setStatus("No hiscores found for " + missing));
+
+		if (waitMillis != 0)
+		{
+			notifyCooldown(name, waitMillis);
+		}
+	}
+
+	private void notifyCooldown(String name, long waitMillis)
+	{
+		long now = System.currentTimeMillis();
+		if (now - lastCooldownMessageMillis < COOLDOWN_MESSAGE_MILLIS)
+		{
+			return;
+		}
+		lastCooldownMessageMillis = now;
+
+		String text = waitMillis == BossLookupService.ALREADY_QUEUED
+			? name + " is already being looked up."
+			: "Boss lookup cooldown: " + name + " in " + (waitMillis + 999) / 1000 + "s.";
+		chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.runeLiteFormattedMessage("Total Boss KC: " + text)
+			.build());
 	}
 
 	private void showSearched(PlayerTotals totals)
