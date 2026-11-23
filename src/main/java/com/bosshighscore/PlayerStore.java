@@ -106,6 +106,18 @@ class PlayerStore
 		write(HISTORY_KEY, history);
 	}
 
+	synchronized void removeFromHistory(String name)
+	{
+		history.removeIf(name::equalsIgnoreCase);
+		write(HISTORY_KEY, history);
+	}
+
+	synchronized void clearHistory()
+	{
+		history.clear();
+		write(HISTORY_KEY, history);
+	}
+
 	synchronized void setFriends(List<String> names)
 	{
 		friends = new ArrayList<>(names);

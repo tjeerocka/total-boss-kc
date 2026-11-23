@@ -17,7 +17,10 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import net.runelite.client.ui.ColorScheme;
@@ -45,18 +48,22 @@ class BossHighscorePanel extends PluginPanel
 	private MaterialTab friendsTab;
 	private MaterialTab historyTab;
 
+	private final Consumer<String> onRemoveFromHistory;
+
 	private PanelState state = PanelState.EMPTY;
 	private String selectedName;
 	private String expandedName;
 
-	BossHighscorePanel(Consumer<String> onSearch, Runnable onRefreshFriends)
+	BossHighscorePanel(Consumer<String> onSearch, Runnable onRefreshFriends, Consumer<String> onRemoveFromHistory,
+		Runnable onClearHistory)
 	{
+		this.onRemoveFromHistory = onRemoveFromHistory;
 		setLayout(new BorderLayout(0, 8));
 		setBorder(new EmptyBorder(10, 10, 10, 10));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 
 		add(createHeader(onSearch), BorderLayout.NORTH);
-		add(createTabs(onRefreshFriends), BorderLayout.CENTER);
+		add(createTabs(onRefreshFriends, onClearHistory), BorderLayout.CENTER);
 		rebuild();
 	}
 
@@ -113,7 +120,7 @@ class BossHighscorePanel extends PluginPanel
 		return header;
 	}
 
-	private JPanel createTabs(Runnable onRefreshFriends)
+	private JPanel createTabs(Runnable onRefreshFriends, Runnable onClearHistory)
 	{
 		JButton refreshButton = new JButton("Refresh friends");
 		refreshButton.addActionListener(e -> onRefreshFriends.run());
@@ -123,12 +130,20 @@ class BossHighscorePanel extends PluginPanel
 		friendsContent.add(friendsList, BorderLayout.CENTER);
 		friendsContent.add(refreshButton, BorderLayout.SOUTH);
 
+		JButton clearButton = new JButton("Clear history");
+		clearButton.addActionListener(e -> confirmClearHistory(onClearHistory));
+
+		JPanel historyContent = new JPanel(new BorderLayout(0, 6));
+		historyContent.setOpaque(false);
+		historyContent.add(historyList, BorderLayout.CENTER);
+		historyContent.add(clearButton, BorderLayout.SOUTH);
+
 		JPanel display = new JPanel(new BorderLayout());
 		display.setOpaque(false);
 
 		tabGroup = new MaterialTabGroup(display);
 		friendsTab = new MaterialTab("Friends", tabGroup, friendsContent);
-		historyTab = new MaterialTab("History", tabGroup, historyList);
+		historyTab = new MaterialTab("History", tabGroup, historyContent);
 		tabGroup.addTab(friendsTab);
 		tabGroup.addTab(historyTab);
 		tabGroup.select(friendsTab);
@@ -142,8 +157,8 @@ class BossHighscorePanel extends PluginPanel
 
 	private void rebuild()
 	{
-		fillList(friendsList, state.getFriends(), true, "Log in to load your friends list");
-		fillList(historyList, state.getHistory(), false, "Search a player to start");
+		fillList(friendsList, state.getFriends(), false, "Log in to load your friends list");
+		fillList(historyList, state.getHistory(), true, "Search a player to start");
 		showSelected();
 		revalidate();
 		repaint();
@@ -160,7 +175,7 @@ class BossHighscorePanel extends PluginPanel
 		selectedTotalLabel.setText(selected == null ? "" : formatKills(selected.totalKills(state.getCategories())));
 	}
 
-	private void fillList(JPanel list, List<PlayerTotals> players, boolean ranked, String emptyHint)
+	private void fillList(JPanel list, List<PlayerTotals> players, boolean removable, String emptyHint)
 	{
 		list.removeAll();
 		if (players.isEmpty())
@@ -169,15 +184,13 @@ class BossHighscorePanel extends PluginPanel
 			return;
 		}
 
-		int rank = 1;
-		for (PlayerTotals player : players)
+		for (int i = 0; i < players.size(); i++)
 		{
-			String rankText = ranked ? String.valueOf(rank++) : "";
-			list.add(createRow(rankText, player));
+			list.add(createRow(String.valueOf(i + 1), players.get(i), removable));
 		}
 	}
 
-	private JPanel createRow(String rankText, PlayerTotals player)
+	private JPanel createRow(String rankText, PlayerTotals player, boolean removable)
 	{
 		JLabel rankLabel = smallLabel(rankText, ColorScheme.LIGHT_GRAY_COLOR);
 		rankLabel.setPreferredSize(new Dimension(16, 0));
@@ -209,6 +222,10 @@ class BossHighscorePanel extends PluginPanel
 				if (SwingUtilities.isLeftMouseButton(e))
 				{
 					toggle(player.getName());
+				}
+				else if (removable && SwingUtilities.isRightMouseButton(e))
+				{
+					removeMenu(player.getName()).show(e.getComponent(), e.getX(), e.getY());
 				}
 			}
 		});
@@ -273,6 +290,26 @@ class BossHighscorePanel extends PluginPanel
 			grid.add(smallLabel("+" + formatKills(gain), color));
 		}
 		return grid;
+	}
+
+	private void confirmClearHistory(Runnable onClearHistory)
+	{
+		int choice = JOptionPane.showConfirmDialog(this,
+			"Remove every player from your search history?", "Clear history",
+			JOptionPane.YES_NO_OPTION);
+		if (choice == JOptionPane.YES_OPTION)
+		{
+			onClearHistory.run();
+		}
+	}
+
+	private JPopupMenu removeMenu(String name)
+	{
+		JMenuItem remove = new JMenuItem("Remove from history");
+		remove.addActionListener(e -> onRemoveFromHistory.accept(name));
+		JPopupMenu menu = new JPopupMenu();
+		menu.add(remove);
+		return menu;
 	}
 
 	private void toggle(String name)

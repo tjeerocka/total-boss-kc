@@ -1,6 +1,9 @@
 package com.bosshighscore;
 
 import java.io.IOException;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -21,6 +24,8 @@ class BossLookupService
 	private final HiscoreClient hiscoreClient;
 	private final ScheduledExecutorService executor;
 	private final AtomicLong nextSlotMillis = new AtomicLong();
+	// Names waiting in the spaced queue, so pressing Refresh twice doesn't look everyone up twice
+	private final Set<String> queued = ConcurrentHashMap.newKeySet();
 
 	@Inject
 	BossLookupService(HiscoreClient hiscoreClient, ScheduledExecutorService executor)
@@ -38,9 +43,19 @@ class BossLookupService
 	/** For batches like the friends list: one lookup per {@link #SPACING_MILLIS}. */
 	void lookupSpaced(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
 	{
+		String key = name.toLowerCase(Locale.ROOT);
+		if (!queued.add(key))
+		{
+			return;
+		}
+
 		long now = System.currentTimeMillis();
 		long slot = nextSlotMillis.updateAndGet(previous -> Math.max(previous + SPACING_MILLIS, now));
-		executor.schedule(() -> lookup(name, onFound, onMissing), slot - now, TimeUnit.MILLISECONDS);
+		executor.schedule(() ->
+		{
+			queued.remove(key);
+			lookup(name, onFound, onMissing);
+		}, slot - now, TimeUnit.MILLISECONDS);
 	}
 
 	private void lookup(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)

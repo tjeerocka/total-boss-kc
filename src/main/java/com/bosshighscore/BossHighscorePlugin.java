@@ -71,7 +71,8 @@ public class BossHighscorePlugin extends Plugin
 	protected void startUp()
 	{
 		store.load();
-		panel = new BossHighscorePanel(this::search, this::refreshFriendsNow);
+		panel = new BossHighscorePanel(this::search, this::refreshFriendsNow, this::removeFromHistory,
+			this::clearHistory);
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
 		navigationButton = NavigationButton.builder()
@@ -193,6 +194,18 @@ public class BossHighscorePlugin extends Plugin
 		}
 		render();
 		SwingUtilities.invokeLater(() -> panel.select(name, friend));
+	}
+
+	private void removeFromHistory(String name)
+	{
+		store.removeFromHistory(name);
+		render();
+	}
+
+	private void clearHistory()
+	{
+		store.clearHistory();
+		render();
 	}
 
 	private void refreshFriendsNow()
