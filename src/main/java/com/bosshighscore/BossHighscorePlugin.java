@@ -146,7 +146,8 @@ public class BossHighscorePlugin extends Plugin
 			.setType(MenuAction.RUNELITE)
 			.onClick(entry ->
 			{
-				clientToolbar.openPanel(navigationButton);
+				// Menu clicks run on the client thread; the toolbar is Swing
+				SwingUtilities.invokeLater(() -> clientToolbar.openPanel(navigationButton));
 				search(name);
 			});
 	}
