@@ -43,6 +43,8 @@ public class BossHighscorePlugin extends Plugin
 	private static final Set<String> PLAYER_NAME_OPTIONS = ImmutableSet.of("Message", "Add ignore", "Remove friend", "Trade with");
 	// The friends list arrives a few ticks after login
 	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
+	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
+	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
 
 	@Inject
 	private Client client;
@@ -168,9 +170,14 @@ public class BossHighscorePlugin extends Plugin
 		{
 			showSearched(saved);
 		}
+		if (saved != null && !saved.isStale(System.currentTimeMillis(), SEARCH_COOLDOWN))
+		{
+			setStatus(saved.hasBossKills() ? "" : name + " has no boss kills on the hiscores");
+			return;
+		}
 
 		setStatus("Looking up " + name + "...");
-		lookups.lookupNow(name, totals ->
+		lookups.lookupSearch(name, totals ->
 		{
 			if (!totals.hasBossKills())
 			{
@@ -231,7 +238,7 @@ public class BossHighscorePlugin extends Plugin
 			PlayerTotals known = store.get(name);
 			if (force || known == null || known.isStale(now, maxAge))
 			{
-				lookups.lookupSpaced(name, this::saveAndRender, missing -> { });
+				lookups.lookupBatch(name, this::saveAndRender, missing -> { });
 			}
 		}
 		render();
