@@ -41,6 +41,10 @@ class BossHighscorePanel extends PluginPanel
 	private final JPanel friendsList = createListPanel();
 	private final JPanel historyList = createListPanel();
 
+	private MaterialTabGroup tabGroup;
+	private MaterialTab friendsTab;
+	private MaterialTab historyTab;
+
 	private PanelState state = PanelState.EMPTY;
 	private String selectedName;
 	private String expandedName;
@@ -62,10 +66,12 @@ class BossHighscorePanel extends PluginPanel
 		rebuild();
 	}
 
-	void select(String name)
+	/** Shows the player in the tab they belong to: Friends for friends, History for everyone else. */
+	void select(String name, boolean friend)
 	{
 		selectedName = name;
 		expandedName = name;
+		tabGroup.select(friend ? friendsTab : historyTab);
 		rebuild();
 	}
 
@@ -112,20 +118,20 @@ class BossHighscorePanel extends PluginPanel
 		JButton refreshButton = new JButton("Refresh friends");
 		refreshButton.addActionListener(e -> onRefreshFriends.run());
 
-		JPanel friendsTab = new JPanel(new BorderLayout(0, 6));
-		friendsTab.setOpaque(false);
-		friendsTab.add(friendsList, BorderLayout.CENTER);
-		friendsTab.add(refreshButton, BorderLayout.SOUTH);
+		JPanel friendsContent = new JPanel(new BorderLayout(0, 6));
+		friendsContent.setOpaque(false);
+		friendsContent.add(friendsList, BorderLayout.CENTER);
+		friendsContent.add(refreshButton, BorderLayout.SOUTH);
 
 		JPanel display = new JPanel(new BorderLayout());
 		display.setOpaque(false);
 
-		MaterialTabGroup tabGroup = new MaterialTabGroup(display);
-		MaterialTab friends = new MaterialTab("Friends", tabGroup, friendsTab);
-		MaterialTab history = new MaterialTab("History", tabGroup, historyList);
-		tabGroup.addTab(friends);
-		tabGroup.addTab(history);
-		tabGroup.select(friends);
+		tabGroup = new MaterialTabGroup(display);
+		friendsTab = new MaterialTab("Friends", tabGroup, friendsContent);
+		historyTab = new MaterialTab("History", tabGroup, historyList);
+		tabGroup.addTab(friendsTab);
+		tabGroup.addTab(historyTab);
+		tabGroup.select(friendsTab);
 
 		JPanel tabs = new JPanel(new BorderLayout(0, 6));
 		tabs.setOpaque(false);

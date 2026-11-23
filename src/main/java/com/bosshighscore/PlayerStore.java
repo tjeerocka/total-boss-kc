@@ -58,6 +58,16 @@ class PlayerStore
 		history = read(HISTORY_KEY, NAMES_TYPE, new ArrayList<>());
 		friends = read(FRIENDS_KEY, NAMES_TYPE, new ArrayList<>());
 		gains = read(GAINS_KEY, GAINS_TYPE, new HashMap<>());
+
+		// Saved by an older version without boss categories: they'd count as 0, so look them up again instead
+		players.values().removeIf(PlayerStore::isOutdated);
+		gains.keySet().retainAll(players.keySet());
+	}
+
+	private static boolean isOutdated(PlayerTotals totals)
+	{
+		return totals.getBosses() == null
+			|| totals.getBosses().stream().anyMatch(boss -> boss.getCategory() == null);
 	}
 
 	synchronized PlayerTotals get(String name)
@@ -100,6 +110,11 @@ class PlayerStore
 	{
 		friends = new ArrayList<>(names);
 		write(FRIENDS_KEY, friends);
+	}
+
+	synchronized boolean isFriend(String name)
+	{
+		return friends.stream().anyMatch(name::equalsIgnoreCase);
 	}
 
 	synchronized List<String> friendNames()

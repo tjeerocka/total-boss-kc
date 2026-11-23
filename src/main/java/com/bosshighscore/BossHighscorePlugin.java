@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -160,6 +161,13 @@ public class BossHighscorePlugin extends Plugin
 			return;
 		}
 
+		// Searched before: show the saved kills straight away, the lookup below refreshes them
+		PlayerTotals saved = store.get(name);
+		if (saved != null && saved.hasBossKills())
+		{
+			showSearched(saved);
+		}
+
 		setStatus("Looking up " + name + "...");
 		lookups.lookupNow(name, totals ->
 		{
@@ -169,11 +177,22 @@ public class BossHighscorePlugin extends Plugin
 				setStatus(name + " has no boss kills on the hiscores");
 				return;
 			}
-			store.addToHistory(totals.getName());
-			saveAndRender(totals);
+			store.put(totals);
+			showSearched(totals);
 			setStatus("");
-			SwingUtilities.invokeLater(() -> panel.select(totals.getName()));
 		}, missing -> setStatus("No hiscores found for " + missing));
+	}
+
+	private void showSearched(PlayerTotals totals)
+	{
+		String name = totals.getName();
+		boolean friend = store.isFriend(name);
+		if (!friend)
+		{
+			store.addToHistory(name);
+		}
+		render();
+		SwingUtilities.invokeLater(() -> panel.select(name, friend));
 	}
 
 	private void refreshFriendsNow()
@@ -238,11 +257,18 @@ public class BossHighscorePlugin extends Plugin
 		Set<BossCategory> categories = countedCategories();
 		PanelState state = new PanelState(
 			Leaderboard.top(store.friends(), categories, FRIENDS_SHOWN),
-			store.history(),
+			withKills(store.history(), categories),
 			store.gains(),
 			config.topBossCount(),
 			categories);
 		SwingUtilities.invokeLater(() -> panel.render(state));
+	}
+
+	private static List<PlayerTotals> withKills(List<PlayerTotals> players, Set<BossCategory> categories)
+	{
+		return players.stream()
+			.filter(player -> player.totalKills(categories) > 0)
+			.collect(Collectors.toList());
 	}
 
 	private Set<BossCategory> countedCategories()
