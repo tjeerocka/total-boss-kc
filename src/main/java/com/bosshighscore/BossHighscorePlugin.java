@@ -176,7 +176,13 @@ public class BossHighscorePlugin extends Plugin
 		}
 		if (saved != null && !saved.isStale(System.currentTimeMillis(), SEARCH_COOLDOWN))
 		{
-			setStatus(saved.hasBossKills() ? "" : name + " has no boss kills on the hiscores");
+			if (!saved.hasBossKills())
+			{
+				setStatus(name + " has no boss kills on the hiscores");
+				SwingUtilities.invokeLater(() -> panel.showWithoutKills(name));
+				return;
+			}
+			setStatus("");
 			return;
 		}
 
@@ -188,6 +194,7 @@ public class BossHighscorePlugin extends Plugin
 			{
 				store.put(totals);
 				setStatus(name + " has no boss kills on the hiscores");
+				SwingUtilities.invokeLater(() -> panel.showWithoutKills(name));
 				return;
 			}
 			store.put(totals);

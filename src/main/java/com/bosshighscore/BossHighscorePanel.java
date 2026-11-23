@@ -82,6 +82,14 @@ class BossHighscorePanel extends PluginPanel
 		rebuild();
 	}
 
+	/** For a searched player without boss kills: shown on the card, not added to a list. */
+	void showWithoutKills(String name)
+	{
+		selectedName = name;
+		expandedName = null;
+		rebuild();
+	}
+
 	void setStatus(String text)
 	{
 		statusLabel.setText(text.isEmpty() ? " " : text);
@@ -171,8 +179,17 @@ class BossHighscorePanel extends PluginPanel
 			.findFirst()
 			.orElse(null);
 
-		selectedNameLabel.setText(selected == null ? "Search a player" : selected.getName());
-		selectedTotalLabel.setText(selected == null ? "" : formatKills(selected.totalKills(state.getCategories())));
+		if (selected != null)
+		{
+			selectedNameLabel.setText(selected.getName());
+			selectedTotalLabel.setText(formatKills(selected.totalKills(state.getCategories())));
+		}
+		else
+		{
+			// Searched players without boss kills aren't in either list, but the card should still match the search
+			selectedNameLabel.setText(selectedName == null ? "Search a player" : selectedName);
+			selectedTotalLabel.setText(selectedName == null ? "" : "0");
+		}
 	}
 
 	private void fillList(JPanel list, List<PlayerTotals> players, boolean removable, String emptyHint)
