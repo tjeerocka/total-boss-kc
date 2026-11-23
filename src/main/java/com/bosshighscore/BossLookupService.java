@@ -15,21 +15,20 @@ import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 
 /**
- * Hiscore lookups off the client thread, at most one search per 2 seconds and one batch lookup per second and never the same player twice at once,
- * so spam clicking can't flood the hiscores or block RuneLite's shared executor. Searches get their own queue so they
- * don't wait behind a friends refresh.
+ * Hiscore lookups off the client thread, so spam clicking can't flood the hiscores or block RuneLite's shared
+ * executor: searches during the 2 second cooldown are dropped, and friends are looked up one per second without
+ * queueing the same player twice. Searches don't wait behind a friends refresh.
  */
 @Slf4j
 @Singleton
 class BossLookupService
 {
-	private static final long SEARCH_SPACING_MILLIS = 2000;
+	private static final long SEARCH_COOLDOWN_MILLIS = 2000;
 	private static final long BATCH_SPACING_MILLIS = 1000;
-	static final long ALREADY_QUEUED = -1;
 
 	private final HiscoreClient hiscoreClient;
 	private final ScheduledExecutorService executor;
-	private final AtomicLong nextSearchMillis = new AtomicLong();
+	private final AtomicLong lastSearchMillis = new AtomicLong();
 	private final AtomicLong nextBatchMillis = new AtomicLong();
 	private final Set<String> queued = ConcurrentHashMap.newKeySet();
 
@@ -41,13 +40,20 @@ class BossLookupService
 	}
 
 	/**
-	 * For searches and Boss lookup.
+	 * For searches and Boss lookup: runs right away, unless the last search was under 2 seconds ago.
 	 *
-	 * @return how long the lookup waits for its turn in milliseconds, or {@link #ALREADY_QUEUED}
+	 * @return false when on cooldown; the search is dropped, not queued
 	 */
-	long lookupSearch(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
+	boolean lookupSearch(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
 	{
-		return schedule(name, nextSearchMillis, SEARCH_SPACING_MILLIS, onFound, onMissing);
+		long now = System.currentTimeMillis();
+		long previous = lastSearchMillis.get();
+		if (now - previous < SEARCH_COOLDOWN_MILLIS || !lastSearchMillis.compareAndSet(previous, now))
+		{
+			return false;
+		}
+		executor.execute(() -> lookup(name, onFound, onMissing));
+		return true;
 	}
 
 	/** For batches like the friends list. */
@@ -56,13 +62,13 @@ class BossLookupService
 		schedule(name, nextBatchMillis, BATCH_SPACING_MILLIS, onFound, onMissing);
 	}
 
-	private long schedule(String name, AtomicLong nextSlotMillis, long spacingMillis, Consumer<PlayerTotals> onFound,
+	private void schedule(String name, AtomicLong nextSlotMillis, long spacingMillis, Consumer<PlayerTotals> onFound,
 		Consumer<String> onMissing)
 	{
 		String key = name.toLowerCase(Locale.ROOT);
 		if (!queued.add(key))
 		{
-			return ALREADY_QUEUED;
+			return;
 		}
 
 		long now = System.currentTimeMillis();
@@ -72,7 +78,6 @@ class BossLookupService
 			queued.remove(key);
 			lookup(name, onFound, onMissing);
 		}, slot - now, TimeUnit.MILLISECONDS);
-		return slot - now;
 	}
 
 	private void lookup(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
