@@ -129,6 +129,12 @@ public class BossHighscorePlugin extends Plugin
 		setStatus("Looking up " + name + "...");
 		lookups.lookupNow(name, totals ->
 		{
+			if (!totals.isRanked())
+			{
+				store.put(totals);
+				setStatus(name + " has no boss kills on the hiscores");
+				return;
+			}
 			store.addToHistory(totals.getName());
 			saveAndRender(totals);
 			setStatus("");

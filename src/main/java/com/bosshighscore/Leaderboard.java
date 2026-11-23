@@ -15,9 +15,11 @@ final class Leaderboard
 	{
 	}
 
+	/** Ranked players only: someone with no boss on the hiscores has nothing to compare. */
 	static List<PlayerTotals> top(Collection<PlayerTotals> players, int limit)
 	{
 		return players.stream()
+			.filter(PlayerTotals::isRanked)
 			.sorted(MOST_KILLS_FIRST)
 			.limit(limit)
 			.collect(Collectors.toList());

@@ -156,7 +156,7 @@ class BossHighscorePanel extends PluginPanel
 			.orElse(null);
 
 		selectedNameLabel.setText(selected == null ? "Search a player" : selected.getName());
-		selectedTotalLabel.setText(selected == null ? "" : formatTotal(selected));
+		selectedTotalLabel.setText(selected == null ? "" : formatKills(selected.getTotalKills()));
 	}
 
 	private void fillList(JPanel list, List<PlayerTotals> players, boolean ranked, String emptyHint)
@@ -171,7 +171,7 @@ class BossHighscorePanel extends PluginPanel
 		int rank = 1;
 		for (PlayerTotals player : players)
 		{
-			String rankText = ranked && player.isRanked() ? String.valueOf(rank++) : "";
+			String rankText = ranked ? String.valueOf(rank++) : "";
 			list.add(createRow(rankText, player));
 		}
 	}
@@ -189,8 +189,8 @@ class BossHighscorePanel extends PluginPanel
 		nameAndUpdated.add(nameLabel);
 		nameAndUpdated.add(smallLabel(formatUpdated(player.getUpdatedMillis()), ColorScheme.LIGHT_GRAY_COLOR));
 
-		JLabel totalLabel = new JLabel(formatTotal(player));
-		totalLabel.setForeground(player.isRanked() ? ColorScheme.BRAND_ORANGE : ColorScheme.LIGHT_GRAY_COLOR);
+		JLabel totalLabel = new JLabel(formatKills(player.getTotalKills()));
+		totalLabel.setForeground(ColorScheme.BRAND_ORANGE);
 
 		JPanel header = new JPanel(new BorderLayout(6, 0));
 		header.setOpaque(false);
@@ -229,17 +229,13 @@ class BossHighscorePanel extends PluginPanel
 		list.setBorder(new EmptyBorder(0, 28, 6, 6));
 
 		List<BossKills> topBosses = player.topBosses(topBossCount);
-		if (topBosses.isEmpty())
-		{
-			list.add(smallLabel("No boss above 5 kills", ColorScheme.LIGHT_GRAY_COLOR));
-		}
 		for (int i = 0; i < topBosses.size(); i++)
 		{
 			BossKills boss = topBosses.get(i);
 			JPanel line = new JPanel(new BorderLayout(6, 0));
 			line.setOpaque(false);
 			line.add(smallLabel((i + 1) + ". " + boss.getBoss(), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
-			line.add(smallLabel(String.format("%,d", boss.getKills()), Color.WHITE), BorderLayout.EAST);
+			line.add(smallLabel(formatKills(boss.getKills()), Color.WHITE), BorderLayout.EAST);
 			list.add(line);
 		}
 		return list;
@@ -268,9 +264,9 @@ class BossHighscorePanel extends PluginPanel
 		return label;
 	}
 
-	private static String formatTotal(PlayerTotals player)
+	private static String formatKills(int kills)
 	{
-		return player.isRanked() ? String.format("%,d", player.getTotalKills()) : "unranked";
+		return String.format("%,d", kills);
 	}
 
 	static String formatUpdated(long millis)

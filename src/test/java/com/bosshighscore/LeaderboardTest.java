@@ -10,7 +10,7 @@ import org.junit.Test;
 public class LeaderboardTest
 {
 	@Test
-	public void mostKillsFirstAndUnrankedLast()
+	public void mostKillsFirstWithoutUnranked()
 	{
 		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(
 			player("Moss Gnome", 0),
@@ -18,7 +18,7 @@ public class LeaderboardTest
 			player("Kraken Kid", 1730)
 		), 20);
 
-		assertEquals(Arrays.asList("tjeerocka", "Kraken Kid", "Moss Gnome"), names(top));
+		assertEquals(Arrays.asList("tjeerocka", "Kraken Kid"), names(top));
 	}
 
 	@Test
