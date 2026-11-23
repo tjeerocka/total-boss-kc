@@ -266,7 +266,7 @@ class BossHighscorePanel extends PluginPanel
 			BossKills boss = topBosses.get(i);
 			JPanel line = new JPanel(new BorderLayout(6, 0));
 			line.setOpaque(false);
-			line.add(smallLabel((i + 1) + ". " + boss.getBoss(), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
+			line.add(smallLabel((i + 1) + ". " + BossNames.shortName(boss.getBoss()), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
 			line.add(smallLabel(formatKills(boss.getKills()), Color.WHITE), BorderLayout.EAST);
 			list.add(line);
 		}
