@@ -141,7 +141,8 @@ public class BossHighscorePlugin extends Plugin
 			return;
 		}
 
-		client.createMenuEntry(-1)
+		// Index 0 is Cancel at the bottom, so 1 puts it last, right above Cancel
+		client.createMenuEntry(1)
 			.setOption(LOOKUP_OPTION)
 			.setTarget(event.getTarget())
 			.setType(MenuAction.RUNELITE)
