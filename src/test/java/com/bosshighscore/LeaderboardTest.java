@@ -29,8 +29,8 @@ public class LeaderboardTest
 	public void ranksOnCountedCategoriesOnly()
 	{
 		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(
-			player("skiller", new BossKills("Wintertodt", 900, BossCategory.SKILLING)),
-			player("raider", new BossKills("Theatre of Blood", 50, BossCategory.RAIDS))
+			player("skiller", new BossKills("Wintertodt", 900)),
+			player("raider", new BossKills("Theatre of Blood", 50))
 		), EnumSet.of(BossCategory.RAIDS), 20);
 
 		assertEquals(Collections.singletonList("raider"), names(top));
@@ -56,7 +56,7 @@ public class LeaderboardTest
 
 	private static BossKills pvm(int kills)
 	{
-		return new BossKills("Zulrah", kills, BossCategory.PVM);
+		return new BossKills("Zulrah", kills);
 	}
 
 	private static PlayerTotals player(String name, BossKills... bosses)

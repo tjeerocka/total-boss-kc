@@ -1,7 +1,6 @@
 package com.bosshighscore;
 
 import static org.junit.Assert.assertEquals;
-import net.runelite.client.hiscore.HiscoreSkill;
 import org.junit.Test;
 
 public class BossCategoryTest
@@ -9,8 +8,9 @@ public class BossCategoryTest
 	@Test
 	public void sortsBossesIntoCategories()
 	{
-		assertEquals(BossCategory.SKILLING, BossCategory.of(HiscoreSkill.WINTERTODT));
-		assertEquals(BossCategory.RAIDS, BossCategory.of(HiscoreSkill.TOMBS_OF_AMASCUT_EXPERT));
-		assertEquals(BossCategory.PVM, BossCategory.of(HiscoreSkill.KRAKEN));
+		assertEquals(BossCategory.SKILLING, BossCategory.of("Wintertodt"));
+		assertEquals(BossCategory.RAIDS, BossCategory.of("Tombs of Amascut: Expert Mode"));
+		assertEquals(BossCategory.RAIDS, BossCategory.of("The Fractured Archive"));
+		assertEquals(BossCategory.PVM, BossCategory.of("Kraken"));
 	}
 }

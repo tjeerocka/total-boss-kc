@@ -29,7 +29,7 @@ final class BossTotals
 			// Unranked bosses (below the hiscore minimum) come back as -1
 			if (entry != null && entry.getLevel() > 0)
 			{
-				bosses.add(new BossKills(skill.getName(), entry.getLevel(), BossCategory.of(skill)));
+				bosses.add(new BossKills(skill.getName(), entry.getLevel()));
 			}
 		}
 

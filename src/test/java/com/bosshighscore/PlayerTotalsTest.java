@@ -16,9 +16,9 @@ public class PlayerTotalsTest
 	private static final Duration SIX_HOURS = Duration.ofHours(6);
 
 	private final PlayerTotals tjeerocka = new PlayerTotals("tjeerocka", Arrays.asList(
-		new BossKills("Kraken", 982, BossCategory.PVM),
-		new BossKills("Wintertodt", 515, BossCategory.SKILLING),
-		new BossKills("Chambers of Xeric", 38, BossCategory.RAIDS)
+		new BossKills("Kraken", 982),
+		new BossKills("Wintertodt", 515),
+		new BossKills("Chambers of Xeric", 38)
 	), 0);
 
 	@Test

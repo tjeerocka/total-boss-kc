@@ -59,15 +59,9 @@ class PlayerStore
 		friends = read(FRIENDS_KEY, NAMES_TYPE, new ArrayList<>());
 		gains = read(GAINS_KEY, GAINS_TYPE, new HashMap<>());
 
-		// Saved by an older version without boss categories: they'd count as 0, so look them up again instead
-		players.values().removeIf(PlayerStore::isOutdated);
+		// Saved by an older version without a boss list: look them up again instead
+		players.values().removeIf(totals -> totals.getBosses() == null);
 		gains.keySet().retainAll(players.keySet());
-	}
-
-	private static boolean isOutdated(PlayerTotals totals)
-	{
-		return totals.getBosses() == null
-			|| totals.getBosses().stream().anyMatch(boss -> boss.getCategory() == null);
 	}
 
 	synchronized PlayerTotals get(String name)

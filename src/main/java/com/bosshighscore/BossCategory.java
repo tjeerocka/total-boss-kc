@@ -2,7 +2,6 @@ package com.bosshighscore;
 
 import com.google.common.collect.ImmutableSet;
 import java.util.Set;
-import net.runelite.client.hiscore.HiscoreSkill;
 
 public enum BossCategory
 {
@@ -27,12 +26,13 @@ public enum BossCategory
 		"The Fractured Archive"
 	);
 
-	static BossCategory of(HiscoreSkill boss)
+	/** By hiscore name, e.g. "Chambers of Xeric". */
+	static BossCategory of(String bossName)
 	{
-		if (SKILLING_BOSSES.contains(boss.getName()))
+		if (SKILLING_BOSSES.contains(bossName))
 		{
 			return SKILLING;
 		}
-		return RAIDS_BOSSES.contains(boss.getName()) ? RAIDS : PVM;
+		return RAIDS_BOSSES.contains(bossName) ? RAIDS : PVM;
 	}
 }

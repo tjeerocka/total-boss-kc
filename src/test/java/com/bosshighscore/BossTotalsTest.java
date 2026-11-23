@@ -27,8 +27,8 @@ public class BossTotalsTest
 		PlayerTotals totals = BossTotals.from("tjeerocka", result, 42);
 
 		assertEquals(Arrays.asList(
-			new BossKills(HiscoreSkill.WINTERTODT.getName(), 515, BossCategory.SKILLING),
-			new BossKills(HiscoreSkill.ZULRAH.getName(), 129, BossCategory.PVM)
+			new BossKills(HiscoreSkill.WINTERTODT.getName(), 515),
+			new BossKills(HiscoreSkill.ZULRAH.getName(), 129)
 		), totals.getBosses());
 		assertEquals(42, totals.getUpdatedMillis());
 	}
