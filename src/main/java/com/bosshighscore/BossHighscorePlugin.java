@@ -48,6 +48,7 @@ public class BossHighscorePlugin extends Plugin
 	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
 	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
 	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
+	private static final String COOLDOWN_TEXT = "Lookup on cooldown, wait 2 seconds between lookups.";
 
 	@Inject
 	private Client client;
@@ -184,6 +185,8 @@ public class BossHighscorePlugin extends Plugin
 			return;
 		}
 
+		// Set before starting, so a fast result can't be overwritten by it
+		setStatus("Looking up " + name + "...");
 		boolean started = lookups.lookupSearch(name, totals ->
 		{
 			if (!totals.hasBossKills())
@@ -200,14 +203,17 @@ public class BossHighscorePlugin extends Plugin
 		if (started)
 		{
 			cooldownNotified = false;
-			setStatus("Looking up " + name + "...");
+			return;
 		}
-		else if (!cooldownNotified)
+
+		// The panel always says why; the chat only once per burst of clicks
+		setStatus(COOLDOWN_TEXT);
+		if (!cooldownNotified)
 		{
 			cooldownNotified = true;
 			chatMessageManager.queue(QueuedMessage.builder()
 				.type(ChatMessageType.GAMEMESSAGE)
-				.runeLiteFormattedMessage("Total Boss KC: lookup on cooldown, wait 2 seconds between lookups.")
+				.runeLiteFormattedMessage("Total Boss KC: " + COOLDOWN_TEXT)
 				.build());
 		}
 	}
