@@ -31,7 +31,7 @@ import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.Text;
 
 @PluginDescriptor(
-	name = "Boss Highscore",
+	name = "Total Boss KC",
 	description = "Total boss kills and top bosses for you, your friends and players you search",
 	tags = {"boss", "kc", "killcount", "hiscore", "highscore", "friends", "total"}
 )
@@ -76,7 +76,7 @@ public class BossHighscorePlugin extends Plugin
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
 		navigationButton = NavigationButton.builder()
-			.tooltip("Boss Highscore")
+			.tooltip("Total Boss KC")
 			.icon(icon)
 			.priority(7)
 			.panel(panel)

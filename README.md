@@ -1,4 +1,4 @@
-# Boss Highscore
+# Total Boss KC
 
 RuneLite plugin. The official hiscores have no total boss kill count, so this adds it up.
 
