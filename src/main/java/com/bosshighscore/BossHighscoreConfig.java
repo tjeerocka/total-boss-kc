@@ -22,4 +22,16 @@ public interface BossHighscoreConfig extends Config
 	{
 		return 5;
 	}
+
+	@Range(min = 1, max = 168)
+	@ConfigItem(
+		keyName = "refreshHours",
+		name = "Refresh after (hours)",
+		description = "On login, friends whose kills are older than this are looked up again",
+		position = 2
+	)
+	default int refreshHours()
+	{
+		return 6;
+	}
 }

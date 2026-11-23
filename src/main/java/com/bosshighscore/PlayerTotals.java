@@ -1,5 +1,6 @@
 package com.bosshighscore;
 
+import java.time.Duration;
 import java.util.List;
 import lombok.Value;
 
@@ -16,6 +17,11 @@ public class PlayerTotals
 	public boolean isRanked()
 	{
 		return totalKills > 0;
+	}
+
+	public boolean isStale(long nowMillis, Duration maxAge)
+	{
+		return nowMillis - updatedMillis > maxAge.toMillis();
 	}
 
 	public List<BossKills> topBosses(int count)

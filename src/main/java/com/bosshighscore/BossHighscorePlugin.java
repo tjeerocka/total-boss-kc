@@ -2,6 +2,7 @@ package com.bosshighscore;
 
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
@@ -140,7 +141,7 @@ public class BossHighscorePlugin extends Plugin
 		clientThread.invokeLater(() -> refreshFriends(true));
 	}
 
-	/** Runs on the client thread. Without force, only friends never looked up before are looked up. */
+	/** Runs on the client thread. Without force, only friends with old or missing totals are looked up. */
 	private void refreshFriends(boolean force)
 	{
 		List<String> names = readFriendNames();
@@ -151,9 +152,12 @@ public class BossHighscorePlugin extends Plugin
 		}
 		store.setFriends(names);
 
+		long now = System.currentTimeMillis();
+		Duration maxAge = Duration.ofHours(config.refreshHours());
 		for (String name : names)
 		{
-			if (force || store.get(name) == null)
+			PlayerTotals known = store.get(name);
+			if (force || known == null || known.isStale(now, maxAge))
 			{
 				lookups.lookupSpaced(name, this::saveAndRender, missing -> { });
 			}
