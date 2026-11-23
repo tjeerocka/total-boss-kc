@@ -1,14 +1,17 @@
 package com.bosshighscore;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -21,8 +24,13 @@ class PlayerStore
 	private static final String PLAYERS_KEY = "players";
 	private static final String HISTORY_KEY = "history";
 	private static final String FRIENDS_KEY = "friends";
+	private static final String GAINS_KEY = "gains";
+	static final Set<String> KEYS = ImmutableSet.of(PLAYERS_KEY, HISTORY_KEY, FRIENDS_KEY, GAINS_KEY);
 	private static final int HISTORY_LIMIT = 50;
 	private static final Type PLAYERS_TYPE = new TypeToken<Map<String, PlayerTotals>>()
+	{
+	}.getType();
+	private static final Type GAINS_TYPE = new TypeToken<Map<String, PlayerGains>>()
 	{
 	}.getType();
 	private static final Type NAMES_TYPE = new TypeToken<List<String>>()
@@ -35,6 +43,7 @@ class PlayerStore
 	private Map<String, PlayerTotals> players = new HashMap<>();
 	private List<String> history = new ArrayList<>();
 	private List<String> friends = new ArrayList<>();
+	private Map<String, PlayerGains> gains = new HashMap<>();
 
 	@Inject
 	PlayerStore(ConfigManager configManager, Gson gson)
@@ -48,6 +57,7 @@ class PlayerStore
 		players = read(PLAYERS_KEY, PLAYERS_TYPE, new HashMap<>());
 		history = read(HISTORY_KEY, NAMES_TYPE, new ArrayList<>());
 		friends = read(FRIENDS_KEY, NAMES_TYPE, new ArrayList<>());
+		gains = read(GAINS_KEY, GAINS_TYPE, new HashMap<>());
 	}
 
 	synchronized PlayerTotals get(String name)
@@ -55,10 +65,24 @@ class PlayerStore
 		return players.get(key(name));
 	}
 
+	/** Saves the lookup and moves the player's gain baselines along with it. */
 	synchronized void put(PlayerTotals totals)
 	{
-		players.put(key(totals.getName()), totals);
+		String key = key(totals.getName());
+		players.put(key, totals);
+
+		KillSnapshot snapshot = totals.snapshot();
+		PlayerGains previous = gains.get(key);
+		gains.put(key, previous == null ? PlayerGains.first(snapshot) : previous.record(snapshot, ZoneId.systemDefault()));
+
 		write(PLAYERS_KEY, players);
+		write(GAINS_KEY, gains);
+	}
+
+	/** Keyed like {@link #key(String)}. */
+	synchronized Map<String, PlayerGains> gains()
+	{
+		return new HashMap<>(gains);
 	}
 
 	synchronized void addToHistory(String name)
@@ -118,7 +142,7 @@ class PlayerStore
 		configManager.setConfiguration(BossHighscoreConfig.GROUP, configKey, gson.toJson(value));
 	}
 
-	private static String key(String name)
+	static String key(String name)
 	{
 		return name.toLowerCase(Locale.ROOT);
 	}

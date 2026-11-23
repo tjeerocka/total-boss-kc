@@ -3,30 +3,45 @@ package com.bosshighscore;
 import static org.junit.Assert.assertEquals;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.Test;
 
 public class LeaderboardTest
 {
+	private static final Set<BossCategory> ALL = EnumSet.allOf(BossCategory.class);
+
 	@Test
-	public void mostKillsFirstWithoutUnranked()
+	public void mostKillsFirstWithoutPlayersWithoutKills()
 	{
 		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(
-			player("Moss Gnome", 0),
-			player("tjeerocka", 2866),
-			player("Kraken Kid", 1730)
-		), 20);
+			player("Moss Gnome"),
+			player("tjeerocka", pvm(2866)),
+			player("Kraken Kid", pvm(1730))
+		), ALL, 20);
 
 		assertEquals(Arrays.asList("tjeerocka", "Kraken Kid"), names(top));
+	}
+
+	@Test
+	public void ranksOnCountedCategoriesOnly()
+	{
+		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(
+			player("skiller", new BossKills("Wintertodt", 900, BossCategory.SKILLING)),
+			player("raider", new BossKills("Theatre of Blood", 50, BossCategory.RAIDS))
+		), EnumSet.of(BossCategory.RAIDS), 20);
+
+		assertEquals(Collections.singletonList("raider"), names(top));
 	}
 
 	@Test
 	public void cutsOffAtLimit()
 	{
 		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(
-			player("a", 1), player("b", 2), player("c", 3)
-		), 2);
+			player("a", pvm(1)), player("b", pvm(2)), player("c", pvm(3))
+		), ALL, 2);
 
 		assertEquals(Arrays.asList("c", "b"), names(top));
 	}
@@ -34,14 +49,19 @@ public class LeaderboardTest
 	@Test
 	public void sameTotalSortsByName()
 	{
-		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(player("bob", 5), player("Alice", 5)), 20);
+		List<PlayerTotals> top = Leaderboard.top(Arrays.asList(player("bob", pvm(5)), player("Alice", pvm(5))), ALL, 20);
 
 		assertEquals(Arrays.asList("Alice", "bob"), names(top));
 	}
 
-	private static PlayerTotals player(String name, int total)
+	private static BossKills pvm(int kills)
 	{
-		return new PlayerTotals(name, total, Collections.emptyList(), 0);
+		return new BossKills("Zulrah", kills, BossCategory.PVM);
+	}
+
+	private static PlayerTotals player(String name, BossKills... bosses)
+	{
+		return new PlayerTotals(name, Arrays.asList(bosses), 0);
 	}
 
 	private static List<String> names(List<PlayerTotals> players)

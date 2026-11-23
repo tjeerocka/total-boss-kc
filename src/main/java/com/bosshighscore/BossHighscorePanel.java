@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -42,9 +41,7 @@ class BossHighscorePanel extends PluginPanel
 	private final JPanel friendsList = createListPanel();
 	private final JPanel historyList = createListPanel();
 
-	private List<PlayerTotals> friends = Collections.emptyList();
-	private List<PlayerTotals> history = Collections.emptyList();
-	private int topBossCount;
+	private PanelState state = PanelState.EMPTY;
 	private String selectedName;
 	private String expandedName;
 
@@ -59,11 +56,9 @@ class BossHighscorePanel extends PluginPanel
 		rebuild();
 	}
 
-	void render(List<PlayerTotals> friends, List<PlayerTotals> history, int topBossCount)
+	void render(PanelState state)
 	{
-		this.friends = friends;
-		this.history = history;
-		this.topBossCount = topBossCount;
+		this.state = state;
 		rebuild();
 	}
 
@@ -141,8 +136,8 @@ class BossHighscorePanel extends PluginPanel
 
 	private void rebuild()
 	{
-		fillList(friendsList, friends, true, "Log in to load your friends list");
-		fillList(historyList, history, false, "Search a player to start");
+		fillList(friendsList, state.getFriends(), true, "Log in to load your friends list");
+		fillList(historyList, state.getHistory(), false, "Search a player to start");
 		showSelected();
 		revalidate();
 		repaint();
@@ -150,13 +145,13 @@ class BossHighscorePanel extends PluginPanel
 
 	private void showSelected()
 	{
-		PlayerTotals selected = Stream.concat(friends.stream(), history.stream())
+		PlayerTotals selected = Stream.concat(state.getFriends().stream(), state.getHistory().stream())
 			.filter(player -> player.getName().equalsIgnoreCase(selectedName))
 			.findFirst()
 			.orElse(null);
 
 		selectedNameLabel.setText(selected == null ? "Search a player" : selected.getName());
-		selectedTotalLabel.setText(selected == null ? "" : formatKills(selected.getTotalKills()));
+		selectedTotalLabel.setText(selected == null ? "" : formatKills(selected.totalKills(state.getCategories())));
 	}
 
 	private void fillList(JPanel list, List<PlayerTotals> players, boolean ranked, String emptyHint)
@@ -189,7 +184,7 @@ class BossHighscorePanel extends PluginPanel
 		nameAndUpdated.add(nameLabel);
 		nameAndUpdated.add(smallLabel(formatUpdated(player.getUpdatedMillis()), ColorScheme.LIGHT_GRAY_COLOR));
 
-		JLabel totalLabel = new JLabel(formatKills(player.getTotalKills()));
+		JLabel totalLabel = new JLabel(formatKills(player.totalKills(state.getCategories())));
 		totalLabel.setForeground(ColorScheme.BRAND_ORANGE);
 
 		JPanel header = new JPanel(new BorderLayout(6, 0));
@@ -217,18 +212,32 @@ class BossHighscorePanel extends PluginPanel
 		row.add(header, BorderLayout.NORTH);
 		if (player.getName().equalsIgnoreCase(expandedName))
 		{
-			row.add(createBossList(player), BorderLayout.CENTER);
+			row.add(createDetails(player), BorderLayout.CENTER);
 		}
 		return row;
+	}
+
+	private JPanel createDetails(PlayerTotals player)
+	{
+		JPanel details = new JPanel(new BorderLayout(0, 6));
+		details.setOpaque(false);
+		details.setBorder(new EmptyBorder(0, 28, 6, 6));
+		details.add(createBossList(player), BorderLayout.CENTER);
+
+		PlayerGains gains = state.getGains().get(PlayerStore.key(player.getName()));
+		if (gains != null)
+		{
+			details.add(createGains(gains), BorderLayout.SOUTH);
+		}
+		return details;
 	}
 
 	private JPanel createBossList(PlayerTotals player)
 	{
 		JPanel list = new JPanel(new GridLayout(0, 1, 0, 2));
 		list.setOpaque(false);
-		list.setBorder(new EmptyBorder(0, 28, 6, 6));
 
-		List<BossKills> topBosses = player.topBosses(topBossCount);
+		List<BossKills> topBosses = player.topBosses(state.getTopBossCount(), state.getCategories());
 		for (int i = 0; i < topBosses.size(); i++)
 		{
 			BossKills boss = topBosses.get(i);
@@ -239,6 +248,25 @@ class BossHighscorePanel extends PluginPanel
 			list.add(line);
 		}
 		return list;
+	}
+
+	private JPanel createGains(PlayerGains gains)
+	{
+		JPanel grid = new JPanel(new GridLayout(2, GainPeriod.values().length, 4, 0));
+		grid.setOpaque(false);
+		for (GainPeriod period : GainPeriod.values())
+		{
+			grid.add(smallLabel(period.getLabel(), ColorScheme.LIGHT_GRAY_COLOR));
+		}
+
+		LocalDate today = LocalDate.now();
+		for (GainPeriod period : GainPeriod.values())
+		{
+			int gain = gains.gain(period, state.getCategories(), today, ZoneId.systemDefault());
+			Color color = gain > 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.LIGHT_GRAY_COLOR;
+			grid.add(smallLabel("+" + formatKills(gain), color));
+		}
+		return grid;
 	}
 
 	private void toggle(String name)

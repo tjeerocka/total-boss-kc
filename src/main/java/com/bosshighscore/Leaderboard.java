@@ -3,24 +3,25 @@ package com.bosshighscore;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 final class Leaderboard
 {
-	private static final Comparator<PlayerTotals> MOST_KILLS_FIRST = Comparator
-		.comparingInt(PlayerTotals::getTotalKills).reversed()
-		.thenComparing(PlayerTotals::getName, String.CASE_INSENSITIVE_ORDER);
-
 	private Leaderboard()
 	{
 	}
 
-	/** Ranked players only: someone with no boss on the hiscores has nothing to compare. */
-	static List<PlayerTotals> top(Collection<PlayerTotals> players, int limit)
+	/** Most kills first. Players without kills in these categories have nothing to compare, so they're left out. */
+	static List<PlayerTotals> top(Collection<PlayerTotals> players, Set<BossCategory> categories, int limit)
 	{
+		Comparator<PlayerTotals> mostKillsFirst = Comparator
+			.comparingInt((PlayerTotals player) -> player.totalKills(categories)).reversed()
+			.thenComparing(PlayerTotals::getName, String.CASE_INSENSITIVE_ORDER);
+
 		return players.stream()
-			.filter(PlayerTotals::isRanked)
-			.sorted(MOST_KILLS_FIRST)
+			.filter(player -> player.totalKills(categories) > 0)
+			.sorted(mostKillsFirst)
 			.limit(limit)
 			.collect(Collectors.toList());
 	}

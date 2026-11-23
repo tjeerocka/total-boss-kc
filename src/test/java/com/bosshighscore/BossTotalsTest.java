@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import java.util.Arrays;
+import java.util.EnumSet;
 import net.runelite.client.hiscore.HiscoreResult;
 import net.runelite.client.hiscore.HiscoreSkill;
 import net.runelite.client.hiscore.HiscoreSkillType;
@@ -16,19 +17,18 @@ public class BossTotalsTest
 	private static final Skill UNRANKED = new Skill(-1, -1, -1);
 
 	@Test
-	public void sumsRankedBossesMostKillsFirst()
+	public void keepsRankedBossesMostKillsFirst()
 	{
 		HiscoreResult result = mock(HiscoreResult.class);
 		when(result.getSkill(any())).thenReturn(UNRANKED);
 		when(result.getSkill(HiscoreSkill.ZULRAH)).thenReturn(new Skill(1, 129, -1));
-		when(result.getSkill(HiscoreSkill.KRAKEN)).thenReturn(new Skill(1, 982, -1));
+		when(result.getSkill(HiscoreSkill.WINTERTODT)).thenReturn(new Skill(1, 515, -1));
 
 		PlayerTotals totals = BossTotals.from("tjeerocka", result, 42);
 
-		assertEquals(1111, totals.getTotalKills());
 		assertEquals(Arrays.asList(
-			new BossKills(HiscoreSkill.KRAKEN.getName(), 982),
-			new BossKills(HiscoreSkill.ZULRAH.getName(), 129)
+			new BossKills(HiscoreSkill.WINTERTODT.getName(), 515, BossCategory.SKILLING),
+			new BossKills(HiscoreSkill.ZULRAH.getName(), 129, BossCategory.PVM)
 		), totals.getBosses());
 		assertEquals(42, totals.getUpdatedMillis());
 	}
@@ -44,6 +44,6 @@ public class BossTotalsTest
 		long bossCount = Arrays.stream(HiscoreSkill.values())
 			.filter(skill -> skill.getType() == HiscoreSkillType.BOSS)
 			.count();
-		assertEquals(bossCount * 99, totals.getTotalKills());
+		assertEquals(bossCount * 99, totals.totalKills(EnumSet.allOf(BossCategory.class)));
 	}
 }

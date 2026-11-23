@@ -7,4 +7,5 @@ public class BossKills
 {
 	String boss;
 	int kills;
+	BossCategory category;
 }

@@ -1,19 +1,24 @@
 package com.bosshighscore;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
 import net.runelite.api.Friend;
 import net.runelite.api.GameState;
+import net.runelite.api.MenuAction;
 import net.runelite.api.NameableContainer;
 import net.runelite.api.Player;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
+import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -33,6 +38,9 @@ import net.runelite.client.util.Text;
 public class BossHighscorePlugin extends Plugin
 {
 	private static final int FRIENDS_SHOWN = 20;
+	private static final String LOOKUP_OPTION = "Boss lookup";
+	// Options that only show up on player names: chat, friends list, clan/friends chat and players in the world
+	private static final Set<String> PLAYER_NAME_OPTIONS = ImmutableSet.of("Message", "Add ignore", "Remove friend", "Trade with");
 	// The friends list arrives a few ticks after login
 	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
 
@@ -111,11 +119,36 @@ public class BossHighscorePlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (BossHighscoreConfig.GROUP.equals(event.getGroup())
-			&& BossHighscoreConfig.TOP_BOSS_COUNT.equals(event.getKey()))
+		// Saved lookups are written to the same group; those already render themselves
+		if (BossHighscoreConfig.GROUP.equals(event.getGroup()) && !PlayerStore.KEYS.contains(event.getKey()))
 		{
 			render();
 		}
+	}
+
+	@Subscribe
+	public void onMenuEntryAdded(MenuEntryAdded event)
+	{
+		if (!PLAYER_NAME_OPTIONS.contains(Text.removeTags(event.getOption())))
+		{
+			return;
+		}
+
+		String name = MenuTargets.playerName(event.getTarget());
+		if (name.isEmpty())
+		{
+			return;
+		}
+
+		client.createMenuEntry(-1)
+			.setOption(LOOKUP_OPTION)
+			.setTarget(event.getTarget())
+			.setType(MenuAction.RUNELITE)
+			.onClick(entry ->
+			{
+				clientToolbar.openPanel(navigationButton);
+				search(name);
+			});
 	}
 
 	private void search(String typedName)
@@ -129,7 +162,7 @@ public class BossHighscorePlugin extends Plugin
 		setStatus("Looking up " + name + "...");
 		lookups.lookupNow(name, totals ->
 		{
-			if (!totals.isRanked())
+			if (!totals.hasBossKills())
 			{
 				store.put(totals);
 				setStatus(name + " has no boss kills on the hiscores");
@@ -201,10 +234,32 @@ public class BossHighscorePlugin extends Plugin
 
 	private void render()
 	{
-		List<PlayerTotals> friends = Leaderboard.top(store.friends(), FRIENDS_SHOWN);
-		List<PlayerTotals> history = store.history();
-		int topBossCount = config.topBossCount();
-		SwingUtilities.invokeLater(() -> panel.render(friends, history, topBossCount));
+		Set<BossCategory> categories = countedCategories();
+		PanelState state = new PanelState(
+			Leaderboard.top(store.friends(), categories, FRIENDS_SHOWN),
+			store.history(),
+			store.gains(),
+			config.topBossCount(),
+			categories);
+		SwingUtilities.invokeLater(() -> panel.render(state));
+	}
+
+	private Set<BossCategory> countedCategories()
+	{
+		Set<BossCategory> categories = EnumSet.noneOf(BossCategory.class);
+		if (config.includePvm())
+		{
+			categories.add(BossCategory.PVM);
+		}
+		if (config.includeSkilling())
+		{
+			categories.add(BossCategory.SKILLING);
+		}
+		if (config.includeRaids())
+		{
+			categories.add(BossCategory.RAIDS);
+		}
+		return categories;
 	}
 
 	private void setStatus(String text)
