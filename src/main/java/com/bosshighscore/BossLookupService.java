@@ -15,7 +15,7 @@ import net.runelite.client.hiscore.HiscoreClient;
 import net.runelite.client.hiscore.HiscoreResult;
 
 /**
- * Hiscore lookups off the client thread, at most one per second per queue and never the same player twice at once,
+ * Hiscore lookups off the client thread, at most one search per 2 seconds and one batch lookup per second and never the same player twice at once,
  * so spam clicking can't flood the hiscores or block RuneLite's shared executor. Searches get their own queue so they
  * don't wait behind a friends refresh.
  */
@@ -23,7 +23,8 @@ import net.runelite.client.hiscore.HiscoreResult;
 @Singleton
 class BossLookupService
 {
-	private static final long SPACING_MILLIS = 1000;
+	private static final long SEARCH_SPACING_MILLIS = 2000;
+	private static final long BATCH_SPACING_MILLIS = 1000;
 
 	private final HiscoreClient hiscoreClient;
 	private final ScheduledExecutorService executor;
@@ -41,16 +42,16 @@ class BossLookupService
 	/** For searches and Boss lookup. */
 	void lookupSearch(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
 	{
-		schedule(name, nextSearchMillis, onFound, onMissing);
+		schedule(name, nextSearchMillis, SEARCH_SPACING_MILLIS, onFound, onMissing);
 	}
 
 	/** For batches like the friends list. */
 	void lookupBatch(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
 	{
-		schedule(name, nextBatchMillis, onFound, onMissing);
+		schedule(name, nextBatchMillis, BATCH_SPACING_MILLIS, onFound, onMissing);
 	}
 
-	private void schedule(String name, AtomicLong nextSlotMillis, Consumer<PlayerTotals> onFound,
+	private void schedule(String name, AtomicLong nextSlotMillis, long spacingMillis, Consumer<PlayerTotals> onFound,
 		Consumer<String> onMissing)
 	{
 		String key = name.toLowerCase(Locale.ROOT);
@@ -60,7 +61,7 @@ class BossLookupService
 		}
 
 		long now = System.currentTimeMillis();
-		long slot = nextSlotMillis.updateAndGet(previous -> Math.max(previous + SPACING_MILLIS, now));
+		long slot = nextSlotMillis.updateAndGet(previous -> Math.max(previous + spacingMillis, now));
 		executor.schedule(() ->
 		{
 			queued.remove(key);
