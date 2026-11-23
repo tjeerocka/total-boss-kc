@@ -16,7 +16,7 @@ import net.runelite.client.hiscore.HiscoreResult;
 
 /**
  * Hiscore lookups off the client thread, so spam clicking can't flood the hiscores or block RuneLite's shared
- * executor: searches during the 2 second cooldown are dropped, and friends are looked up one per second without
+ * executor: searches during the 2 second cooldown are refused (see {@link SearchCountdown}), and friends are looked up one per second without
  * queueing the same player twice. Searches don't wait behind a friends refresh.
  */
 @Slf4j
@@ -54,6 +54,11 @@ class BossLookupService
 		}
 		executor.execute(() -> lookup(name, onFound, onMissing));
 		return true;
+	}
+
+	long cooldownRemainingMillis()
+	{
+		return Math.max(0, lastSearchMillis.get() + SEARCH_COOLDOWN_MILLIS - System.currentTimeMillis());
 	}
 
 	/** For batches like the friends list. */

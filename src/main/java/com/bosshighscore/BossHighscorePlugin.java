@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Friend;
 import net.runelite.api.GameState;
@@ -21,8 +20,6 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.client.callback.ClientThread;
-import net.runelite.client.chat.ChatMessageManager;
-import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -48,9 +45,6 @@ public class BossHighscorePlugin extends Plugin
 	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
 	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
 	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
-	// Chat gets the cooldown message at most this often; alternating fast clicks would otherwise repeat it every other click
-	private static final long COOLDOWN_CHAT_MILLIS = 30_000;
-	private static final String COOLDOWN_TEXT = "Lookup on cooldown, wait 2 seconds between lookups.";
 
 	@Inject
 	private Client client;
@@ -62,7 +56,7 @@ public class BossHighscorePlugin extends Plugin
 	private ClientToolbar clientToolbar;
 
 	@Inject
-	private ChatMessageManager chatMessageManager;
+	private SearchCountdown searchCountdown;
 
 	@Inject
 	private BossHighscoreConfig config;
@@ -77,7 +71,6 @@ public class BossHighscorePlugin extends Plugin
 	private NavigationButton navigationButton;
 	private int ticksUntilFriendsRefresh;
 	private boolean friendsRefreshedThisLogin;
-	private long lastCooldownChatMillis;
 
 	@Override
 	protected void startUp()
@@ -100,6 +93,7 @@ public class BossHighscorePlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		searchCountdown.stop();
 		clientToolbar.removeNavigation(navigationButton);
 		friendsRefreshedThisLogin = false;
 		ticksUntilFriendsRefresh = 0;
@@ -201,21 +195,9 @@ public class BossHighscorePlugin extends Plugin
 			setStatus("");
 		}, missing -> setStatus("No hiscores found for " + missing));
 
-		if (started)
+		if (!started)
 		{
-			return;
-		}
-
-		// The panel always says why; the chat at most once per COOLDOWN_CHAT_MILLIS
-		setStatus(COOLDOWN_TEXT);
-		long now = System.currentTimeMillis();
-		if (now - lastCooldownChatMillis >= COOLDOWN_CHAT_MILLIS)
-		{
-			lastCooldownChatMillis = now;
-			chatMessageManager.queue(QueuedMessage.builder()
-				.type(ChatMessageType.GAMEMESSAGE)
-				.runeLiteFormattedMessage("Total Boss KC: " + COOLDOWN_TEXT)
-				.build());
+			searchCountdown.searchAfterCooldown(name, this::setStatus, this::search);
 		}
 	}
 
