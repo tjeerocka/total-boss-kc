@@ -7,6 +7,7 @@ import java.lang.reflect.Type;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -15,9 +16,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 
 /** Looked-up totals, search history and the last seen friends list, saved in the RuneLite config. */
+@Slf4j
 @Singleton
 class PlayerStore
 {
@@ -61,7 +64,7 @@ class PlayerStore
 
 		// Saved by an older version without a boss list: look them up again instead
 		players.values().removeIf(totals -> totals.getBosses() == null);
-		gains.keySet().retainAll(players.keySet());
+		pruneUnused();
 	}
 
 	synchronized PlayerTotals get(String name)
@@ -96,6 +99,7 @@ class PlayerStore
 		if (history.size() > HISTORY_LIMIT)
 		{
 			history = new ArrayList<>(history.subList(0, HISTORY_LIMIT));
+			pruneUnused();
 		}
 		write(HISTORY_KEY, history);
 	}
@@ -104,18 +108,40 @@ class PlayerStore
 	{
 		history.removeIf(name::equalsIgnoreCase);
 		write(HISTORY_KEY, history);
+		pruneUnused();
 	}
 
 	synchronized void clearHistory()
 	{
 		history.clear();
 		write(HISTORY_KEY, history);
+		pruneUnused();
 	}
 
 	synchronized void setFriends(List<String> names)
 	{
 		friends = new ArrayList<>(names);
 		write(FRIENDS_KEY, friends);
+		pruneUnused();
+	}
+
+	/** Drops saved kills and gains of players who are neither a friend nor in the history, so the save can't grow forever. */
+	private void pruneUnused()
+	{
+		Set<String> kept = new HashSet<>();
+		friends.forEach(name -> kept.add(key(name)));
+		history.forEach(name -> kept.add(key(name)));
+
+		boolean playersChanged = players.keySet().retainAll(kept);
+		boolean gainsChanged = gains.keySet().retainAll(kept);
+		if (playersChanged)
+		{
+			write(PLAYERS_KEY, players);
+		}
+		if (gainsChanged)
+		{
+			write(GAINS_KEY, gains);
+		}
 	}
 
 	synchronized boolean isFriend(String name)
@@ -154,8 +180,17 @@ class PlayerStore
 		{
 			return fallback;
 		}
-		T value = gson.fromJson(json, type);
-		return value == null ? fallback : value;
+		try
+		{
+			T value = gson.fromJson(json, type);
+			return value == null ? fallback : value;
+		}
+		catch (RuntimeException e)
+		{
+			// A damaged save must not stop the plugin from starting: start that part empty instead
+			log.warn("Could not read saved {}, starting without it", configKey, e);
+			return fallback;
+		}
 	}
 
 	private void write(String configKey, Object value)

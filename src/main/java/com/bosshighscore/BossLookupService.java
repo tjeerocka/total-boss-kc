@@ -82,6 +82,7 @@ class BossLookupService
 
 	private void lookup(String name, Consumer<PlayerTotals> onFound, Consumer<String> onMissing)
 	{
+		PlayerTotals totals;
 		try
 		{
 			HiscoreResult result = hiscoreClient.lookup(name);
@@ -90,12 +91,15 @@ class BossLookupService
 				onMissing.accept(name);
 				return;
 			}
-			onFound.accept(BossTotals.from(name, result, System.currentTimeMillis()));
+			totals = BossTotals.from(name, result, System.currentTimeMillis());
 		}
-		catch (IOException e)
+		catch (IOException | RuntimeException e)
 		{
-			log.debug("Hiscore lookup failed for {}", name, e);
+			// RuntimeException too: a changed hiscore format must end the lookup, not leave it hanging
+			log.warn("Hiscore lookup failed for {}", name, e);
 			onMissing.accept(name);
+			return;
 		}
+		onFound.accept(totals);
 	}
 }
