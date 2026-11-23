@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -258,18 +257,11 @@ public class BossHighscorePlugin extends Plugin
 		Set<BossCategory> categories = countedCategories();
 		PanelState state = new PanelState(
 			Leaderboard.top(store.friends(), categories, FRIENDS_SHOWN),
-			withKills(store.history(), categories),
+			Leaderboard.top(store.history(), categories, Integer.MAX_VALUE),
 			store.gains(),
 			config.topBossCount(),
 			categories);
 		SwingUtilities.invokeLater(() -> panel.render(state));
-	}
-
-	private static List<PlayerTotals> withKills(List<PlayerTotals> players, Set<BossCategory> categories)
-	{
-		return players.stream()
-			.filter(player -> player.totalKills(categories) > 0)
-			.collect(Collectors.toList());
 	}
 
 	private Set<BossCategory> countedCategories()
