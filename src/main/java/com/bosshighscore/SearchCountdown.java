@@ -6,24 +6,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import net.runelite.api.ChatLineBuffer;
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.MessageNode;
-import net.runelite.client.callback.ClientThread;
 
 /**
- * A search clicked during the cooldown waits here; the latest click wins. It counts down in the panel and in one
- * chat line, then searches when the cooldown is over and removes the chat line.
+ * A search clicked during the cooldown waits here; the latest click wins. It counts down in the panel's status line,
+ * then searches when the cooldown is over.
  */
 @Singleton
 class SearchCountdown
 {
 	private static final long TICK_MILLIS = 200;
 
-	private final Client client;
-	private final ClientThread clientThread;
 	private final ScheduledExecutorService executor;
 	private final BossLookupService lookups;
 
@@ -31,14 +23,10 @@ class SearchCountdown
 	private Consumer<String> onStatus;
 	private Consumer<String> onSearch;
 	private ScheduledFuture<?> ticker;
-	// Only touched on the client thread
-	private MessageNode chatLine;
 
 	@Inject
-	SearchCountdown(Client client, ClientThread clientThread, ScheduledExecutorService executor, BossLookupService lookups)
+	SearchCountdown(ScheduledExecutorService executor, BossLookupService lookups)
 	{
-		this.client = client;
-		this.clientThread = clientThread;
 		this.executor = executor;
 		this.lookups = lookups;
 	}
@@ -62,7 +50,6 @@ class SearchCountdown
 			ticker = null;
 		}
 		pendingName = null;
-		clientThread.invoke(this::removeChatLine);
 	}
 
 	private synchronized void tick()
@@ -70,9 +57,7 @@ class SearchCountdown
 		long remaining = lookups.cooldownRemainingMillis();
 		if (remaining > 0)
 		{
-			String text = "Looking up " + pendingName + " in " + (remaining + 999) / 1000 + "s...";
-			onStatus.accept(text);
-			clientThread.invoke(() -> showChatLine(text));
+			onStatus.accept("Looking up " + pendingName + " in " + (remaining + 999) / 1000 + "s...");
 			return;
 		}
 
@@ -80,37 +65,5 @@ class SearchCountdown
 		Consumer<String> search = onSearch;
 		stop();
 		search.accept(name);
-	}
-
-	private void showChatLine(String text)
-	{
-		if (client.getGameState() != GameState.LOGGED_IN)
-		{
-			return;
-		}
-		if (chatLine == null)
-		{
-			chatLine = client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Total Boss KC: " + text, null);
-		}
-		else
-		{
-			chatLine.setValue("Total Boss KC: " + text);
-		}
-		client.refreshChat();
-	}
-
-	private void removeChatLine()
-	{
-		if (chatLine == null)
-		{
-			return;
-		}
-		ChatLineBuffer buffer = client.getChatLineMap().get(ChatMessageType.GAMEMESSAGE.getType());
-		if (buffer != null)
-		{
-			buffer.removeMessageNode(chatLine);
-		}
-		chatLine = null;
-		client.refreshChat();
 	}
 }
