@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ class PlayerStore
 	private static final String GAINS_KEY = "gains";
 	static final Set<String> KEYS = ImmutableSet.of(PLAYERS_KEY, HISTORY_KEY, FRIENDS_KEY, GAINS_KEY);
 	private static final int HISTORY_LIMIT = 50;
+	private static final Duration KEEP_UNUSED = Duration.ofDays(60);
 	private static final Type PLAYERS_TYPE = new TypeToken<Map<String, PlayerTotals>>()
 	{
 	}.getType();
@@ -99,7 +101,6 @@ class PlayerStore
 		if (history.size() > HISTORY_LIMIT)
 		{
 			history = new ArrayList<>(history.subList(0, HISTORY_LIMIT));
-			pruneUnused();
 		}
 		write(HISTORY_KEY, history);
 	}
@@ -108,32 +109,35 @@ class PlayerStore
 	{
 		history.removeIf(name::equalsIgnoreCase);
 		write(HISTORY_KEY, history);
-		pruneUnused();
 	}
 
 	synchronized void clearHistory()
 	{
 		history.clear();
 		write(HISTORY_KEY, history);
-		pruneUnused();
 	}
 
 	synchronized void setFriends(List<String> names)
 	{
 		friends = new ArrayList<>(names);
 		write(FRIENDS_KEY, friends);
-		pruneUnused();
 	}
 
-	/** Drops saved kills and gains of players who are neither a friend nor in the history, so the save can't grow forever. */
+	/**
+	 * Drops saved kills and gains of players that are neither a friend nor in the history and haven't been looked up
+	 * for {@link #KEEP_UNUSED}, so the save can't grow forever. Not by friends list alone: right after login that list
+	 * can still be half loaded, and dropping those friends would reset their gains.
+	 */
 	private void pruneUnused()
 	{
-		Set<String> kept = new HashSet<>();
-		friends.forEach(name -> kept.add(key(name)));
-		history.forEach(name -> kept.add(key(name)));
+		Set<String> named = new HashSet<>();
+		friends.forEach(name -> named.add(key(name)));
+		history.forEach(name -> named.add(key(name)));
+		long cutoff = System.currentTimeMillis() - KEEP_UNUSED.toMillis();
 
-		boolean playersChanged = players.keySet().retainAll(kept);
-		boolean gainsChanged = gains.keySet().retainAll(kept);
+		boolean playersChanged = players.entrySet()
+			.removeIf(entry -> !named.contains(entry.getKey()) && entry.getValue().getUpdatedMillis() < cutoff);
+		boolean gainsChanged = gains.keySet().retainAll(players.keySet());
 		if (playersChanged)
 		{
 			write(PLAYERS_KEY, players);
