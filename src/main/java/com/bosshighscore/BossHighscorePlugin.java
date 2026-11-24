@@ -41,8 +41,6 @@ public class BossHighscorePlugin extends Plugin
 	private static final String LOOKUP_OPTION = "Boss lookup";
 	// Options that only show up on player names: chat, friends list, clan/friends chat and players in the world
 	private static final Set<String> PLAYER_NAME_OPTIONS = ImmutableSet.of("Message", "Add ignore", "Remove friend", "Trade with");
-	// The friends list arrives a few ticks after login
-	private static final int TICKS_UNTIL_FRIENDS_LOADED = 5;
 	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
 	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
 
@@ -69,15 +67,46 @@ public class BossHighscorePlugin extends Plugin
 
 	private BossHighscorePanel panel;
 	private NavigationButton navigationButton;
-	private int ticksUntilFriendsRefresh;
+	// Set while waiting for the friends list to finish loading after login, null otherwise
+	private FriendListLoad friendListLoad;
 	private boolean friendsRefreshedThisLogin;
 
 	@Override
 	protected void startUp()
 	{
 		store.load();
-		panel = new BossHighscorePanel(this::search, this::refreshFriendsNow, this::removeFromHistory,
-			this::clearHistory);
+		panel = new BossHighscorePanel(new PanelActions()
+		{
+			@Override
+			public void search(String name)
+			{
+				BossHighscorePlugin.this.search(name);
+			}
+
+			@Override
+			public void refreshFriends()
+			{
+				refreshFriendsNow();
+			}
+
+			@Override
+			public void refreshPlayer(String name)
+			{
+				lookUp(name);
+			}
+
+			@Override
+			public void removeFromHistory(String name)
+			{
+				BossHighscorePlugin.this.removeFromHistory(name);
+			}
+
+			@Override
+			public void clearHistory()
+			{
+				BossHighscorePlugin.this.clearHistory();
+			}
+		});
 
 		BufferedImage icon = ImageUtil.loadImageResource(getClass(), "icon.png");
 		navigationButton = NavigationButton.builder()
@@ -96,7 +125,7 @@ public class BossHighscorePlugin extends Plugin
 		searchCountdown.stop();
 		clientToolbar.removeNavigation(navigationButton);
 		friendsRefreshedThisLogin = false;
-		ticksUntilFriendsRefresh = 0;
+		friendListLoad = null;
 	}
 
 	@Subscribe
@@ -110,15 +139,22 @@ public class BossHighscorePlugin extends Plugin
 		else if (event.getGameState() == GameState.LOGGED_IN && !friendsRefreshedThisLogin)
 		{
 			friendsRefreshedThisLogin = true;
-			ticksUntilFriendsRefresh = TICKS_UNTIL_FRIENDS_LOADED;
+			friendListLoad = new FriendListLoad();
 		}
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if (ticksUntilFriendsRefresh > 0 && --ticksUntilFriendsRefresh == 0)
+		if (friendListLoad == null)
 		{
+			return;
+		}
+
+		NameableContainer<Friend> container = client.getFriendContainer();
+		if (friendListLoad.tick(container == null ? -1 : container.getCount()))
+		{
+			friendListLoad = null;
 			refreshFriends(false);
 		}
 	}
@@ -186,6 +222,12 @@ public class BossHighscorePlugin extends Plugin
 			return;
 		}
 
+		lookUp(name);
+	}
+
+	/** Asks the hiscores now, skipping the saved result; waits out the cooldown first if needed. */
+	private void lookUp(String name)
+	{
 		// Set before starting, so a fast result can't be overwritten by it
 		setStatus("Looking up " + name + "...");
 		boolean started = lookups.lookupSearch(name, totals ->
@@ -204,7 +246,7 @@ public class BossHighscorePlugin extends Plugin
 
 		if (!started)
 		{
-			searchCountdown.searchAfterCooldown(name, this::setStatus, this::search);
+			searchCountdown.searchAfterCooldown(name, this::setStatus, this::lookUp);
 		}
 	}
 

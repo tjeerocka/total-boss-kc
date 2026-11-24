@@ -13,7 +13,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -48,22 +47,21 @@ class BossHighscorePanel extends PluginPanel
 	private MaterialTab friendsTab;
 	private MaterialTab historyTab;
 
-	private final Consumer<String> onRemoveFromHistory;
+	private final PanelActions actions;
 
 	private PanelState state = PanelState.EMPTY;
 	private String selectedName;
 	private String expandedName;
 
-	BossHighscorePanel(Consumer<String> onSearch, Runnable onRefreshFriends, Consumer<String> onRemoveFromHistory,
-		Runnable onClearHistory)
+	BossHighscorePanel(PanelActions actions)
 	{
-		this.onRemoveFromHistory = onRemoveFromHistory;
+		this.actions = actions;
 		setLayout(new BorderLayout(0, 8));
 		setBorder(new EmptyBorder(10, 10, 10, 10));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 
-		add(createHeader(onSearch), BorderLayout.NORTH);
-		add(createTabs(onRefreshFriends, onClearHistory), BorderLayout.CENTER);
+		add(createHeader(), BorderLayout.NORTH);
+		add(createTabs(), BorderLayout.CENTER);
 		rebuild();
 	}
 
@@ -95,7 +93,7 @@ class BossHighscorePanel extends PluginPanel
 		statusLabel.setText(text.isEmpty() ? " " : text);
 	}
 
-	private JPanel createHeader(Consumer<String> onSearch)
+	private JPanel createHeader()
 	{
 		searchField.setIcon(IconTextField.Icon.SEARCH);
 		searchField.setPreferredSize(new Dimension(PluginPanel.PANEL_WIDTH - 20, 30));
@@ -103,7 +101,7 @@ class BossHighscorePanel extends PluginPanel
 		searchField.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
 		searchField.addActionListener(e ->
 		{
-			onSearch.accept(searchField.getText());
+			actions.search(searchField.getText());
 			searchField.setText("");
 		});
 
@@ -128,10 +126,10 @@ class BossHighscorePanel extends PluginPanel
 		return header;
 	}
 
-	private JPanel createTabs(Runnable onRefreshFriends, Runnable onClearHistory)
+	private JPanel createTabs()
 	{
 		JButton refreshButton = new JButton("Refresh friends");
-		refreshButton.addActionListener(e -> onRefreshFriends.run());
+		refreshButton.addActionListener(e -> actions.refreshFriends());
 
 		JPanel friendsContent = new JPanel(new BorderLayout(0, 6));
 		friendsContent.setOpaque(false);
@@ -139,7 +137,7 @@ class BossHighscorePanel extends PluginPanel
 		friendsContent.add(refreshButton, BorderLayout.SOUTH);
 
 		JButton clearButton = new JButton("Clear history");
-		clearButton.addActionListener(e -> confirmClearHistory(onClearHistory));
+		clearButton.addActionListener(e -> confirmClearHistory());
 
 		JPanel historyContent = new JPanel(new BorderLayout(0, 6));
 		historyContent.setOpaque(false);
@@ -227,7 +225,7 @@ class BossHighscorePanel extends PluginPanel
 		header.setOpaque(false);
 		header.setBorder(new EmptyBorder(4, 6, 4, 6));
 		header.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		header.setToolTipText("Click to show top bosses");
+		header.setToolTipText("Left-click for top bosses, right-click to refresh");
 		header.add(rankLabel, BorderLayout.WEST);
 		header.add(nameAndUpdated, BorderLayout.CENTER);
 		header.add(totalLabel, BorderLayout.EAST);
@@ -240,9 +238,9 @@ class BossHighscorePanel extends PluginPanel
 				{
 					toggle(player.getName());
 				}
-				else if (removable && SwingUtilities.isRightMouseButton(e))
+				else if (SwingUtilities.isRightMouseButton(e))
 				{
-					removeMenu(player.getName()).show(e.getComponent(), e.getX(), e.getY());
+					rowMenu(player.getName(), removable).show(e.getComponent(), e.getX(), e.getY());
 				}
 			}
 		});
@@ -309,23 +307,30 @@ class BossHighscorePanel extends PluginPanel
 		return grid;
 	}
 
-	private void confirmClearHistory(Runnable onClearHistory)
+	private void confirmClearHistory()
 	{
 		int choice = JOptionPane.showConfirmDialog(this,
 			"Remove every player from your search history?", "Clear history",
 			JOptionPane.YES_NO_OPTION);
 		if (choice == JOptionPane.YES_OPTION)
 		{
-			onClearHistory.run();
+			actions.clearHistory();
 		}
 	}
 
-	private JPopupMenu removeMenu(String name)
+	private JPopupMenu rowMenu(String name, boolean removable)
 	{
-		JMenuItem remove = new JMenuItem("Remove from history");
-		remove.addActionListener(e -> onRemoveFromHistory.accept(name));
 		JPopupMenu menu = new JPopupMenu();
-		menu.add(remove);
+		JMenuItem refresh = new JMenuItem("Refresh");
+		refresh.addActionListener(e -> actions.refreshPlayer(name));
+		menu.add(refresh);
+
+		if (removable)
+		{
+			JMenuItem remove = new JMenuItem("Remove from history");
+			remove.addActionListener(e -> actions.removeFromHistory(name));
+			menu.add(remove);
+		}
 		return menu;
 	}
 
