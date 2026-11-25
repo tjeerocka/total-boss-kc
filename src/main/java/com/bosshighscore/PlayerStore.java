@@ -89,6 +89,16 @@ class PlayerStore
 	}
 
 	/** Keyed like {@link #key(String)}. */
+	/**
+	 * True when the player's last lookup was saved before gains per boss existed. Looking them up once more gives
+	 * their gains a per-boss starting point straight away instead of waiting out the refresh time.
+	 */
+	synchronized boolean lacksBossDetail(String name)
+	{
+		PlayerGains playerGains = gains.get(key(name));
+		return playerGains != null && !playerGains.getLatest().hasBossDetail();
+	}
+
 	synchronized Map<String, PlayerGains> gains()
 	{
 		return new HashMap<>(gains);

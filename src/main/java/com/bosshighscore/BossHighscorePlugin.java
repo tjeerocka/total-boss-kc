@@ -295,7 +295,7 @@ public class BossHighscorePlugin extends Plugin
 		for (String name : names)
 		{
 			PlayerTotals known = store.get(name);
-			if (force || known == null || known.isStale(now, maxAge))
+			if (force || known == null || known.isStale(now, maxAge) || store.lacksBossDetail(name))
 			{
 				lookups.lookupBatch(name, this::saveAndRender, missing -> { });
 			}
