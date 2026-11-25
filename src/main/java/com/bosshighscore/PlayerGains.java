@@ -6,6 +6,7 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,9 +41,23 @@ public class PlayerGains
 		for (GainPeriod period : GainPeriod.values())
 		{
 			boolean newPeriodStarted = latestDay.isBefore(period.start(nextDay));
-			nextBaselines.put(period, newPeriodStarted ? latest : baselines.get(period));
+			nextBaselines.put(period, withBossDetail(newPeriodStarted ? latest : baselines.get(period)));
 		}
 		return new PlayerGains(next, nextBaselines);
+	}
+
+	/**
+	 * A starting point saved before gains per boss existed gets the latest lookup's per-boss counts when nothing was
+	 * killed in between: kill counts only go up, so an equal total means every boss is equal too.
+	 */
+	private KillSnapshot withBossDetail(KillSnapshot baseline)
+	{
+		Set<BossCategory> all = EnumSet.allOf(BossCategory.class);
+		if (baseline.hasBossDetail() || !latest.hasBossDetail() || baseline.total(all) != latest.total(all))
+		{
+			return baseline;
+		}
+		return KillSnapshot.of(baseline.getMillis(), latest.getBosses());
 	}
 
 	int gain(GainPeriod period, Set<BossCategory> categories, LocalDate today, ZoneId zone)

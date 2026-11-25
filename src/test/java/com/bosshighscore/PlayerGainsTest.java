@@ -117,6 +117,18 @@ public class PlayerGainsTest
 		assertEquals(30, gains.gain(GainPeriod.TODAY, ALL, MONDAY, UTC));
 	}
 
+	@Test
+	public void oldStartingPointGetsBossDetailWhenNothingWasKilledSince()
+	{
+		KillSnapshot old = new KillSnapshot(millis(MONDAY), null, Collections.singletonMap(BossCategory.PVM, 100));
+		PlayerGains gains = PlayerGains.first(old)
+			.record(snapshot(MONDAY, 100), UTC)
+			.record(snapshot(MONDAY, 104), UTC);
+
+		assertEquals(Collections.singletonList(new BossKills("Zulrah", 4)),
+			gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+	}
+
 	private static KillSnapshot snapshot(LocalDate day, int zulrahKills)
 	{
 		return snapshot(day, Collections.singletonMap("Zulrah", zulrahKills));
