@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.swing.JButton;
@@ -292,16 +294,21 @@ class BossHighscorePanel extends PluginPanel
 
 	private JPanel createGains(PlayerGains gains)
 	{
-		JPanel grid = new JPanel(new GridLayout(2, GainPeriod.values().length, 4, 0));
+		// With a period open, only that one shows, so its per-boss list can't be mixed up with the others
+		List<GainPeriod> periods = openPeriod == null
+			? Arrays.asList(GainPeriod.values())
+			: Collections.singletonList(openPeriod);
+
+		JPanel grid = new JPanel(new GridLayout(2, periods.size(), 4, 0));
 		grid.setOpaque(false);
-		for (GainPeriod period : GainPeriod.values())
+		for (GainPeriod period : periods)
 		{
 			Color color = period == openPeriod ? ColorScheme.BRAND_ORANGE : ColorScheme.LIGHT_GRAY_COLOR;
 			grid.add(clickable(smallLabel(period.getLabel(), color), period));
 		}
 
 		LocalDate today = LocalDate.now();
-		for (GainPeriod period : GainPeriod.values())
+		for (GainPeriod period : periods)
 		{
 			int gain = gains.gain(period, state.getCategories(), today, ZoneId.systemDefault());
 			Color color = gain > 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.LIGHT_GRAY_COLOR;
@@ -322,7 +329,7 @@ class BossHighscorePanel extends PluginPanel
 	private JLabel clickable(JLabel label, GainPeriod period)
 	{
 		label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		label.setToolTipText("Click for gains per boss");
+		label.setToolTipText(period == openPeriod ? "Click to show all periods" : "Click for gains per boss");
 		label.addMouseListener(new MouseAdapter()
 		{
 			@Override
