@@ -12,8 +12,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.swing.JButton;
@@ -294,35 +292,48 @@ class BossHighscorePanel extends PluginPanel
 
 	private JPanel createGains(PlayerGains gains)
 	{
-		// With a period open, only that one shows, so its per-boss list can't be mixed up with the others
-		List<GainPeriod> periods = openPeriod == null
-			? Arrays.asList(GainPeriod.values())
-			: Collections.singletonList(openPeriod);
-
-		JPanel grid = new JPanel(new GridLayout(2, periods.size(), 4, 0));
-		grid.setOpaque(false);
-		for (GainPeriod period : periods)
-		{
-			Color color = period == openPeriod ? ColorScheme.BRAND_ORANGE : ColorScheme.LIGHT_GRAY_COLOR;
-			grid.add(clickable(smallLabel(period.getLabel(), color), period));
-		}
-
-		LocalDate today = LocalDate.now();
-		for (GainPeriod period : periods)
-		{
-			int gain = gains.gain(period, state.getCategories(), today, ZoneId.systemDefault());
-			Color color = gain > 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.LIGHT_GRAY_COLOR;
-			grid.add(clickable(smallLabel("+" + formatKills(gain), color), period));
-		}
-
 		JPanel gainsPanel = new JPanel(new BorderLayout(0, 4));
 		gainsPanel.setOpaque(false);
-		gainsPanel.add(grid, BorderLayout.NORTH);
-		if (openPeriod != null)
+		if (openPeriod == null)
 		{
-			gainsPanel.add(createBreakdown(gains, openPeriod), BorderLayout.CENTER);
+			gainsPanel.add(createAllPeriods(gains), BorderLayout.NORTH);
+			return gainsPanel;
 		}
+
+		// One period open: only its header and per-boss list, so they can't be mixed up with the other periods
+		JPanel header = new JPanel(new BorderLayout(6, 0));
+		header.setOpaque(false);
+		header.add(clickable(smallLabel(openPeriod.getLabel(), ColorScheme.BRAND_ORANGE), openPeriod), BorderLayout.WEST);
+		header.add(clickable(gainLabel("Total ", gainFor(gains, openPeriod)), openPeriod), BorderLayout.EAST);
+		gainsPanel.add(header, BorderLayout.NORTH);
+		gainsPanel.add(createBreakdown(gains, openPeriod), BorderLayout.CENTER);
 		return gainsPanel;
+	}
+
+	private JPanel createAllPeriods(PlayerGains gains)
+	{
+		JPanel grid = new JPanel(new GridLayout(2, GainPeriod.values().length, 4, 0));
+		grid.setOpaque(false);
+		for (GainPeriod period : GainPeriod.values())
+		{
+			grid.add(clickable(smallLabel(period.getLabel(), ColorScheme.LIGHT_GRAY_COLOR), period));
+		}
+		for (GainPeriod period : GainPeriod.values())
+		{
+			grid.add(clickable(gainLabel("", gainFor(gains, period)), period));
+		}
+		return grid;
+	}
+
+	private int gainFor(PlayerGains gains, GainPeriod period)
+	{
+		return gains.gain(period, state.getCategories(), LocalDate.now(), ZoneId.systemDefault());
+	}
+
+	private static JLabel gainLabel(String prefix, int gain)
+	{
+		Color color = gain > 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.LIGHT_GRAY_COLOR;
+		return smallLabel(prefix + "+" + formatKills(gain), color);
 	}
 
 	/** Clicking a period opens its per-boss list; clicking it again closes it. */
@@ -363,7 +374,7 @@ class BossHighscorePanel extends PluginPanel
 			JPanel line = new JPanel(new BorderLayout(6, 0));
 			line.setOpaque(false);
 			line.add(smallLabel(BossNames.shortName(boss.getBoss()), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
-			line.add(smallLabel("+" + formatKills(boss.getKills()), ColorScheme.PROGRESS_COMPLETE_COLOR), BorderLayout.EAST);
+			line.add(gainLabel("", boss.getKills()), BorderLayout.EAST);
 			list.add(line);
 		}
 		return list;
