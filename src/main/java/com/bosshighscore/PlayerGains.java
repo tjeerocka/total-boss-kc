@@ -3,9 +3,13 @@ package com.bosshighscore;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.Value;
 
 /**
@@ -49,6 +53,31 @@ public class PlayerGains
 			return 0;
 		}
 		return latest.total(categories) - baselines.get(period).total(categories);
+	}
+
+	/**
+	 * Every boss that went up in the period, most gained first.
+	 *
+	 * @return null when the period's starting point was saved before gains per boss existed
+	 */
+	List<BossKills> breakdown(GainPeriod period, Set<BossCategory> categories, LocalDate today, ZoneId zone)
+	{
+		if (day(latest, zone).isBefore(period.start(today)))
+		{
+			return Collections.emptyList();
+		}
+
+		KillSnapshot baseline = baselines.get(period);
+		if (!baseline.hasBossDetail() || !latest.hasBossDetail())
+		{
+			return null;
+		}
+		return latest.getBosses().entrySet().stream()
+			.filter(boss -> categories.contains(BossCategory.of(boss.getKey())))
+			.map(boss -> new BossKills(boss.getKey(), boss.getValue() - baseline.kills(boss.getKey())))
+			.filter(gain -> gain.getKills() > 0)
+			.sorted(Comparator.comparingInt(BossKills::getKills).reversed())
+			.collect(Collectors.toList());
 	}
 
 	private static LocalDate day(KillSnapshot snapshot, ZoneId zone)

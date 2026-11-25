@@ -52,6 +52,8 @@ class BossHighscorePanel extends PluginPanel
 	private PanelState state = PanelState.EMPTY;
 	private String selectedName;
 	private String expandedName;
+	// The gains period whose per-boss list is open under the expanded player, or null
+	private GainPeriod openPeriod;
 
 	BossHighscorePanel(PanelActions actions)
 	{
@@ -294,7 +296,8 @@ class BossHighscorePanel extends PluginPanel
 		grid.setOpaque(false);
 		for (GainPeriod period : GainPeriod.values())
 		{
-			grid.add(smallLabel(period.getLabel(), ColorScheme.LIGHT_GRAY_COLOR));
+			Color color = period == openPeriod ? ColorScheme.BRAND_ORANGE : ColorScheme.LIGHT_GRAY_COLOR;
+			grid.add(clickable(smallLabel(period.getLabel(), color), period));
 		}
 
 		LocalDate today = LocalDate.now();
@@ -302,9 +305,61 @@ class BossHighscorePanel extends PluginPanel
 		{
 			int gain = gains.gain(period, state.getCategories(), today, ZoneId.systemDefault());
 			Color color = gain > 0 ? ColorScheme.PROGRESS_COMPLETE_COLOR : ColorScheme.LIGHT_GRAY_COLOR;
-			grid.add(smallLabel("+" + formatKills(gain), color));
+			grid.add(clickable(smallLabel("+" + formatKills(gain), color), period));
 		}
-		return grid;
+
+		JPanel gainsPanel = new JPanel(new BorderLayout(0, 4));
+		gainsPanel.setOpaque(false);
+		gainsPanel.add(grid, BorderLayout.NORTH);
+		if (openPeriod != null)
+		{
+			gainsPanel.add(createBreakdown(gains, openPeriod), BorderLayout.CENTER);
+		}
+		return gainsPanel;
+	}
+
+	/** Clicking a period opens its per-boss list; clicking it again closes it. */
+	private JLabel clickable(JLabel label, GainPeriod period)
+	{
+		label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		label.setToolTipText("Click for gains per boss");
+		label.addMouseListener(new MouseAdapter()
+		{
+			@Override
+			public void mouseClicked(MouseEvent e)
+			{
+				openPeriod = period == openPeriod ? null : period;
+				rebuild();
+			}
+		});
+		return label;
+	}
+
+	private JPanel createBreakdown(PlayerGains gains, GainPeriod period)
+	{
+		JPanel list = new JPanel(new GridLayout(0, 1, 0, 2));
+		list.setOpaque(false);
+
+		List<BossKills> gained = gains.breakdown(period, state.getCategories(), LocalDate.now(), ZoneId.systemDefault());
+		if (gained == null)
+		{
+			list.add(smallLabel("Per boss from the next lookups on", ColorScheme.LIGHT_GRAY_COLOR));
+			return list;
+		}
+		if (gained.isEmpty())
+		{
+			list.add(smallLabel("No boss kills in this period", ColorScheme.LIGHT_GRAY_COLOR));
+			return list;
+		}
+		for (BossKills boss : gained)
+		{
+			JPanel line = new JPanel(new BorderLayout(6, 0));
+			line.setOpaque(false);
+			line.add(smallLabel(BossNames.shortName(boss.getBoss()), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
+			line.add(smallLabel("+" + formatKills(boss.getKills()), ColorScheme.PROGRESS_COMPLETE_COLOR), BorderLayout.EAST);
+			list.add(line);
+		}
+		return list;
 	}
 
 	private void confirmClearHistory()
@@ -338,6 +393,7 @@ class BossHighscorePanel extends PluginPanel
 	{
 		boolean wasExpanded = name.equalsIgnoreCase(expandedName);
 		expandedName = wasExpanded ? null : name;
+		openPeriod = null;
 		selectedName = name;
 		rebuild();
 	}

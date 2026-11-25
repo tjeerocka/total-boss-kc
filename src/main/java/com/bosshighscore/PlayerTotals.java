@@ -1,7 +1,7 @@
 package com.bosshighscore;
 
 import java.time.Duration;
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,11 +45,11 @@ public class PlayerTotals
 
 	public KillSnapshot snapshot()
 	{
-		Map<BossCategory, Integer> kills = new EnumMap<>(BossCategory.class);
+		Map<String, Integer> kills = new HashMap<>();
 		for (BossKills boss : bosses)
 		{
-			kills.merge(boss.getCategory(), boss.getKills(), Integer::sum);
+			kills.put(boss.getBoss(), boss.getKills());
 		}
-		return new KillSnapshot(updatedMillis, kills);
+		return KillSnapshot.of(updatedMillis, kills);
 	}
 }

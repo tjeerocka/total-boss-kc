@@ -7,6 +7,7 @@ RuneLite plugin. The official hiscores have no total boss kill count, so this ad
 - History tab: players you searched, most kills first. Right-click to remove one, or clear them all
 - Right-click a name in either tab to refresh just that player
 - Left-click a name for their top bosses (count set in config) and gains: today, this week, month and year
+- Click Today, Week, Month or Year to see every boss that went up in that period
 - Config toggles for what counts: PvM bosses, skilling bosses (Wintertodt, Tempoross, Zalcano), raids (incl. The Fractured Archive)
 - Right-click a player name (chat, friends list, players in the world) for "Boss lookup"
 

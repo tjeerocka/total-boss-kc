@@ -1,11 +1,15 @@
 package com.bosshighscore;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import com.google.common.collect.ImmutableMap;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 
@@ -81,9 +85,50 @@ public class PlayerGainsTest
 		assertEquals(0, gains.gain(GainPeriod.TODAY, EnumSet.of(BossCategory.RAIDS), MONDAY, UTC));
 	}
 
-	private static KillSnapshot snapshot(LocalDate day, int pvmKills)
+	@Test
+	public void breakdownListsEveryBossThatWentUpMostFirst()
 	{
-		long millis = day.atTime(12, 0).toInstant(ZoneOffset.UTC).toEpochMilli();
-		return new KillSnapshot(millis, Collections.singletonMap(BossCategory.PVM, pvmKills));
+		PlayerGains gains = PlayerGains.first(snapshot(MONDAY, ImmutableMap.of("Zulrah", 10, "Kraken", 50, "Vorkath", 7)))
+			.record(snapshot(MONDAY, ImmutableMap.of("Zulrah", 12, "Kraken", 90, "Vorkath", 7, "Cerberus", 5)), UTC);
+
+		assertEquals(Arrays.asList(
+			new BossKills("Kraken", 40),
+			new BossKills("Cerberus", 5),
+			new BossKills("Zulrah", 2)
+		), gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+	}
+
+	@Test
+	public void breakdownFollowsCountedCategories()
+	{
+		PlayerGains gains = PlayerGains.first(snapshot(MONDAY, ImmutableMap.of("Wintertodt", 10)))
+			.record(snapshot(MONDAY, ImmutableMap.of("Wintertodt", 20)), UTC);
+
+		assertEquals(Collections.emptyList(), gains.breakdown(GainPeriod.TODAY, EnumSet.of(BossCategory.PVM), MONDAY, UTC));
+	}
+
+	@Test
+	public void breakdownUnknownForStartingPointsSavedBeforeIt()
+	{
+		KillSnapshot old = new KillSnapshot(millis(MONDAY), null, Collections.singletonMap(BossCategory.PVM, 100));
+		PlayerGains gains = PlayerGains.first(old).record(snapshot(MONDAY, 130), UTC);
+
+		assertNull(gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+		assertEquals(30, gains.gain(GainPeriod.TODAY, ALL, MONDAY, UTC));
+	}
+
+	private static KillSnapshot snapshot(LocalDate day, int zulrahKills)
+	{
+		return snapshot(day, Collections.singletonMap("Zulrah", zulrahKills));
+	}
+
+	private static KillSnapshot snapshot(LocalDate day, Map<String, Integer> bosses)
+	{
+		return KillSnapshot.of(millis(day), bosses);
+	}
+
+	private static long millis(LocalDate day)
+	{
+		return day.atTime(12, 0).toInstant(ZoneOffset.UTC).toEpochMilli();
 	}
 }
