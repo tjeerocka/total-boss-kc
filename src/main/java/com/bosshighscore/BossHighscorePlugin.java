@@ -4,10 +4,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Client;
@@ -65,11 +69,15 @@ public class BossHighscorePlugin extends Plugin
 	@Inject
 	private BossLookupService lookups;
 
+	@Inject
+	private ScheduledExecutorService executor;
+
 	private BossHighscorePanel panel;
 	private NavigationButton navigationButton;
 	// Set while waiting for the friends list to finish loading after login, null otherwise
 	private FriendListLoad friendListLoad;
 	private boolean friendsRefreshedThisLogin;
+	private ScheduledFuture<?> midnightRefresh;
 
 	@Override
 	protected void startUp()
@@ -117,11 +125,13 @@ public class BossHighscorePlugin extends Plugin
 			.build();
 		clientToolbar.addNavigation(navigationButton);
 		render();
+		scheduleMidnightRefresh();
 	}
 
 	@Override
 	protected void shutDown()
 	{
+		midnightRefresh.cancel(false);
 		searchCountdown.stop();
 		clientToolbar.removeNavigation(navigationButton);
 		friendsRefreshedThisLogin = false;
@@ -272,6 +282,22 @@ public class BossHighscorePlugin extends Plugin
 	{
 		store.clearHistory();
 		render();
+	}
+
+	private void scheduleMidnightRefresh()
+	{
+		long delayMillis = MidnightTiming.untilNextRun(ZonedDateTime.now(), store.friendNames().size()).toMillis();
+		midnightRefresh = executor.schedule(this::refreshBeforeMidnight, delayMillis, TimeUnit.MILLISECONDS);
+	}
+
+	/** Uses the saved friends list, so it also works while logged out, as long as RuneLite is open. */
+	private void refreshBeforeMidnight()
+	{
+		for (String name : store.friendNames())
+		{
+			lookups.lookupBatch(name, this::saveAndRender, missing -> { });
+		}
+		scheduleMidnightRefresh();
 	}
 
 	private void refreshFriendsNow()
