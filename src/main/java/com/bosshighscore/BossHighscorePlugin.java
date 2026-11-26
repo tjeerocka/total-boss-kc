@@ -286,16 +286,23 @@ public class BossHighscorePlugin extends Plugin
 
 	private void scheduleMidnightRefresh()
 	{
-		long delayMillis = MidnightTiming.untilNextRun(ZonedDateTime.now(), store.friendNames().size()).toMillis();
-		midnightRefresh = executor.schedule(this::refreshBeforeMidnight, delayMillis, TimeUnit.MILLISECONDS);
+		long delayMillis = MidnightTiming.untilNextMidnight(ZonedDateTime.now()).toMillis();
+		midnightRefresh = executor.schedule(this::refreshAtMidnight, delayMillis, TimeUnit.MILLISECONDS);
 	}
 
-	/** Uses the saved friends list, so it also works while logged out, as long as RuneLite is open. */
-	private void refreshBeforeMidnight()
+	/**
+	 * Starts the new day for every friend: each lookup becomes their starting point for today. Uses the saved friends
+	 * list, so it also works while logged out, as long as RuneLite is open.
+	 */
+	private void refreshAtMidnight()
 	{
 		for (String name : store.friendNames())
 		{
-			lookups.lookupBatch(name, this::saveAndRender, missing -> { });
+			lookups.lookupBatch(name, totals ->
+			{
+				store.putAtMidnight(totals);
+				render();
+			}, missing -> { });
 		}
 		scheduleMidnightRefresh();
 	}

@@ -35,13 +35,28 @@ public class PlayerGains
 
 	PlayerGains record(KillSnapshot next, ZoneId zone)
 	{
+		return record(next, zone, false);
+	}
+
+	/**
+	 * For the lookup made at midnight: it becomes the starting point of the periods that just began, so kills from the
+	 * evening before stay out of the new day.
+	 */
+	PlayerGains recordPeriodStart(KillSnapshot next, ZoneId zone)
+	{
+		return record(next, zone, true);
+	}
+
+	private PlayerGains record(KillSnapshot next, ZoneId zone, boolean nextStartsNewPeriods)
+	{
 		LocalDate latestDay = day(latest, zone);
 		LocalDate nextDay = day(next, zone);
+		KillSnapshot newPeriodStart = nextStartsNewPeriods ? next : latest;
 		Map<GainPeriod, KillSnapshot> nextBaselines = new EnumMap<>(GainPeriod.class);
 		for (GainPeriod period : GainPeriod.values())
 		{
 			boolean newPeriodStarted = latestDay.isBefore(period.start(nextDay));
-			nextBaselines.put(period, withBossDetail(newPeriodStarted ? latest : baselines.get(period)));
+			nextBaselines.put(period, withBossDetail(newPeriodStarted ? newPeriodStart : baselines.get(period)));
 		}
 		return new PlayerGains(next, nextBaselines);
 	}

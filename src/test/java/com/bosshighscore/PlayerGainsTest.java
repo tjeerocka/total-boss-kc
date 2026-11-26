@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import com.google.common.collect.ImmutableMap;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -143,6 +144,24 @@ public class PlayerGainsTest
 
 		assertEquals(Collections.singletonList(new BossKills("Zulrah", 30)), week.getBosses());
 		assertEquals(20, week.getUnknownKills());
+	}
+
+	@Test
+	public void midnightLookupStartsTheNewDay()
+	{
+		LocalDate tuesday = MONDAY.plusDays(1);
+		PlayerGains gains = PlayerGains.first(snapshot(MONDAY, 100))
+			.recordPeriodStart(snapshot(tuesday.atStartOfDay(), 110), UTC)
+			.record(snapshot(tuesday, 125), UTC);
+
+		// The 10 kills from Monday evening stay out of Tuesday
+		assertEquals(15, gains.gain(GainPeriod.TODAY, ALL, tuesday, UTC));
+		assertEquals(25, gains.gain(GainPeriod.WEEK, ALL, tuesday, UTC));
+	}
+
+	private static KillSnapshot snapshot(LocalDateTime time, int zulrahKills)
+	{
+		return KillSnapshot.of(time.toInstant(ZoneOffset.UTC).toEpochMilli(), Collections.singletonMap("Zulrah", zulrahKills));
 	}
 
 	private static KillSnapshot snapshot(LocalDate day, int zulrahKills)

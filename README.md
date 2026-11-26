@@ -11,7 +11,7 @@ RuneLite plugin. The official hiscores have no total boss kill count, so this ad
 - Config toggles for what counts: PvM bosses, skilling bosses (Wintertodt, Tempoross, Zalcano), raids (incl. The Fractured Archive)
 - Right-click a player name (chat, friends list, players in the world) for "Boss lookup"
 
-Friends are also looked up just before local midnight while RuneLite is open, so late-evening kills count on the right day.
+Friends are also looked up at local midnight while RuneLite is open; that lookup starts their new day, so late-evening kills count on the right day.
 
 Gains come from the plugin's own lookups, so they start counting from the first time a player is looked up.
 

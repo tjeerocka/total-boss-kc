@@ -11,20 +11,19 @@ public class MidnightTimingTest
 	private static final ZoneId BERLIN = ZoneId.of("Europe/Berlin");
 
 	@Test
-	public void runsBeforeMidnightWithTimeForEveryFriend()
+	public void waitsUntilLocalMidnight()
 	{
 		ZonedDateTime noon = ZonedDateTime.of(2026, 11, 26, 12, 0, 0, 0, BERLIN);
 
-		// 20 friends: 20s of lookups + 30s spare, so 23:59:10
-		assertEquals(Duration.ofHours(11).plusMinutes(59).plusSeconds(10), MidnightTiming.untilNextRun(noon, 20));
+		assertEquals(Duration.ofHours(12), MidnightTiming.untilNextMidnight(noon));
 	}
 
 	@Test
-	public void insideTonightsWindowWaitsForTomorrowNight()
+	public void atMidnightWaitsForTheNextOne()
 	{
-		ZonedDateTime justStarted = ZonedDateTime.of(2026, 11, 26, 23, 59, 10, 0, BERLIN);
+		ZonedDateTime midnight = ZonedDateTime.of(2026, 11, 27, 0, 0, 0, 0, BERLIN);
 
-		assertEquals(Duration.ofDays(1), MidnightTiming.untilNextRun(justStarted, 20));
+		assertEquals(Duration.ofDays(1), MidnightTiming.untilNextMidnight(midnight));
 	}
 
 	@Test
@@ -33,6 +32,6 @@ public class MidnightTimingTest
 		// Clocks go forward at 02:00 on 29 March 2026; midnight itself is unaffected
 		ZonedDateTime evening = ZonedDateTime.of(2026, 3, 28, 22, 0, 0, 0, BERLIN);
 
-		assertEquals(Duration.ofHours(1).plusMinutes(59).plusSeconds(10), MidnightTiming.untilNextRun(evening, 20));
+		assertEquals(Duration.ofHours(2), MidnightTiming.untilNextMidnight(evening));
 	}
 }

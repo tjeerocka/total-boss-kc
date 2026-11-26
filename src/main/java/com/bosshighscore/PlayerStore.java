@@ -77,12 +77,31 @@ class PlayerStore
 	/** Saves the lookup and moves the player's gain baselines along with it. */
 	synchronized void put(PlayerTotals totals)
 	{
+		put(totals, false);
+	}
+
+	/** For the midnight lookup: it becomes the starting point of the day (and week, month, year) that just began. */
+	synchronized void putAtMidnight(PlayerTotals totals)
+	{
+		put(totals, true);
+	}
+
+	private void put(PlayerTotals totals, boolean atMidnight)
+	{
 		String key = key(totals.getName());
 		players.put(key, totals);
 
 		KillSnapshot snapshot = totals.snapshot();
 		PlayerGains previous = gains.get(key);
-		gains.put(key, previous == null ? PlayerGains.first(snapshot) : previous.record(snapshot, ZoneId.systemDefault()));
+		ZoneId zone = ZoneId.systemDefault();
+		if (previous == null)
+		{
+			gains.put(key, PlayerGains.first(snapshot));
+		}
+		else
+		{
+			gains.put(key, atMidnight ? previous.recordPeriodStart(snapshot, zone) : previous.record(snapshot, zone));
+		}
 
 		write(PLAYERS_KEY, players);
 		write(GAINS_KEY, gains);
