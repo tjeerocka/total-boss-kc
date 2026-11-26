@@ -358,26 +358,35 @@ class BossHighscorePanel extends PluginPanel
 		JPanel list = new JPanel(new GridLayout(0, 1, 0, 2));
 		list.setOpaque(false);
 
-		List<BossKills> gained = gains.breakdown(period, state.getCategories(), LocalDate.now(), ZoneId.systemDefault());
-		if (gained == null)
+		GainBreakdown breakdown = gains.breakdown(period, state.getCategories(), LocalDate.now(), ZoneId.systemDefault());
+		if (breakdown == null)
 		{
 			list.add(smallLabel("Per boss from the next lookups on", ColorScheme.LIGHT_GRAY_COLOR));
 			return list;
 		}
-		if (gained.isEmpty())
+		if (breakdown.getBosses().isEmpty() && breakdown.getUnknownKills() <= 0)
 		{
 			list.add(smallLabel("No boss kills in this period", ColorScheme.LIGHT_GRAY_COLOR));
 			return list;
 		}
-		for (BossKills boss : gained)
+		for (BossKills boss : breakdown.getBosses())
 		{
-			JPanel line = new JPanel(new BorderLayout(6, 0));
-			line.setOpaque(false);
-			line.add(smallLabel(BossNames.shortName(boss.getBoss()), ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
-			line.add(gainLabel("", boss.getKills()), BorderLayout.EAST);
-			list.add(line);
+			list.add(breakdownLine(BossNames.shortName(boss.getBoss()), boss.getKills()));
+		}
+		if (breakdown.getUnknownKills() > 0)
+		{
+			list.add(breakdownLine("Earlier, boss unknown", breakdown.getUnknownKills()));
 		}
 		return list;
+	}
+
+	private static JPanel breakdownLine(String name, int kills)
+	{
+		JPanel line = new JPanel(new BorderLayout(6, 0));
+		line.setOpaque(false);
+		line.add(smallLabel(name, ColorScheme.LIGHT_GRAY_COLOR), BorderLayout.CENTER);
+		line.add(gainLabel("", kills), BorderLayout.EAST);
+		return line;
 	}
 
 	private void confirmClearHistory()

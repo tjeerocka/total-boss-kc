@@ -71,28 +71,42 @@ public class PlayerGains
 	}
 
 	/**
-	 * Every boss that went up in the period, most gained first.
+	 * Every boss that went up in the period, most gained first. When the period's starting point was saved before gains
+	 * per boss existed, the bosses count from the earliest later starting point that has them, and the kills before
+	 * that are returned as unknown.
 	 *
-	 * @return null when the period's starting point was saved before gains per boss existed
+	 * @return null when no starting point in the period has per-boss counts yet
 	 */
-	List<BossKills> breakdown(GainPeriod period, Set<BossCategory> categories, LocalDate today, ZoneId zone)
+	GainBreakdown breakdown(GainPeriod period, Set<BossCategory> categories, LocalDate today, ZoneId zone)
 	{
 		if (day(latest, zone).isBefore(period.start(today)))
 		{
-			return Collections.emptyList();
+			return new GainBreakdown(Collections.emptyList(), 0);
 		}
 
 		KillSnapshot baseline = baselines.get(period);
-		if (!baseline.hasBossDetail() || !latest.hasBossDetail())
+		KillSnapshot from = baseline.hasBossDetail() ? baseline : earliestWithBossDetailSince(baseline);
+		if (from == null || !latest.hasBossDetail())
 		{
 			return null;
 		}
-		return latest.getBosses().entrySet().stream()
+
+		List<BossKills> bosses = latest.getBosses().entrySet().stream()
 			.filter(boss -> categories.contains(BossCategory.of(boss.getKey())))
-			.map(boss -> new BossKills(boss.getKey(), boss.getValue() - baseline.kills(boss.getKey())))
+			.map(boss -> new BossKills(boss.getKey(), boss.getValue() - from.kills(boss.getKey())))
 			.filter(gain -> gain.getKills() > 0)
 			.sorted(Comparator.comparingInt(BossKills::getKills).reversed())
 			.collect(Collectors.toList());
+		return new GainBreakdown(bosses, from.total(categories) - baseline.total(categories));
+	}
+
+	private KillSnapshot earliestWithBossDetailSince(KillSnapshot baseline)
+	{
+		return baselines.values().stream()
+			.filter(KillSnapshot::hasBossDetail)
+			.filter(snapshot -> snapshot.getMillis() >= baseline.getMillis())
+			.min(Comparator.comparingLong(KillSnapshot::getMillis))
+			.orElse(null);
 	}
 
 	private static LocalDate day(KillSnapshot snapshot, ZoneId zone)

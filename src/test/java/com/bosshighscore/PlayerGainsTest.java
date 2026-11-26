@@ -95,7 +95,7 @@ public class PlayerGainsTest
 			new BossKills("Kraken", 40),
 			new BossKills("Cerberus", 5),
 			new BossKills("Zulrah", 2)
-		), gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+		), gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC).getBosses());
 	}
 
 	@Test
@@ -104,7 +104,8 @@ public class PlayerGainsTest
 		PlayerGains gains = PlayerGains.first(snapshot(MONDAY, ImmutableMap.of("Wintertodt", 10)))
 			.record(snapshot(MONDAY, ImmutableMap.of("Wintertodt", 20)), UTC);
 
-		assertEquals(Collections.emptyList(), gains.breakdown(GainPeriod.TODAY, EnumSet.of(BossCategory.PVM), MONDAY, UTC));
+		assertEquals(Collections.emptyList(),
+			gains.breakdown(GainPeriod.TODAY, EnumSet.of(BossCategory.PVM), MONDAY, UTC).getBosses());
 	}
 
 	@Test
@@ -126,7 +127,22 @@ public class PlayerGainsTest
 			.record(snapshot(MONDAY, 104), UTC);
 
 		assertEquals(Collections.singletonList(new BossKills("Zulrah", 4)),
-			gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+			gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC).getBosses());
+	}
+
+	@Test
+	public void olderPeriodShowsKnownBossesAndTheRestAsUnknown()
+	{
+		LocalDate tuesday = MONDAY.plusDays(1);
+		KillSnapshot old = new KillSnapshot(millis(MONDAY), null, Collections.singletonMap(BossCategory.PVM, 100));
+		PlayerGains gains = PlayerGains.first(old)
+			.record(snapshot(MONDAY, 120), UTC)
+			.record(snapshot(tuesday, 150), UTC);
+
+		GainBreakdown week = gains.breakdown(GainPeriod.WEEK, ALL, tuesday, UTC);
+
+		assertEquals(Collections.singletonList(new BossKills("Zulrah", 30)), week.getBosses());
+		assertEquals(20, week.getUnknownKills());
 	}
 
 	private static KillSnapshot snapshot(LocalDate day, int zulrahKills)
