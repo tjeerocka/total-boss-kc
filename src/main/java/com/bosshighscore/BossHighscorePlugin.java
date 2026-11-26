@@ -47,6 +47,8 @@ public class BossHighscorePlugin extends Plugin
 	private static final Set<String> PLAYER_NAME_OPTIONS = ImmutableSet.of("Message", "Add ignore", "Remove friend", "Trade with");
 	// A player searched again within this time is shown from the saved lookup instead of asking the hiscores again
 	private static final Duration SEARCH_COOLDOWN = Duration.ofMinutes(1);
+	// Friends without any boss on the hiscores rarely change, so they're looked up less often to save requests
+	private static final Duration NO_KILLS_REFRESH = Duration.ofDays(2);
 
 	@Inject
 	private Client client;
@@ -296,8 +298,13 @@ public class BossHighscorePlugin extends Plugin
 	 */
 	private void refreshAtMidnight()
 	{
+		long now = System.currentTimeMillis();
 		for (String name : store.friendNames())
 		{
+			if (!isDue(store.get(name), now, Duration.ZERO))
+			{
+				continue;
+			}
 			lookups.lookupBatch(name, totals ->
 			{
 				store.putAtMidnight(totals);
@@ -305,6 +312,16 @@ public class BossHighscorePlugin extends Plugin
 			}, missing -> { });
 		}
 		scheduleMidnightRefresh();
+	}
+
+	/** Friends without boss kills wait {@link #NO_KILLS_REFRESH}; everyone else waits {@code maxAge}. */
+	private static boolean isDue(PlayerTotals known, long now, Duration maxAge)
+	{
+		if (known == null)
+		{
+			return true;
+		}
+		return known.isStale(now, known.hasBossKills() ? maxAge : NO_KILLS_REFRESH);
 	}
 
 	private void refreshFriendsNow()
@@ -328,7 +345,7 @@ public class BossHighscorePlugin extends Plugin
 		for (String name : names)
 		{
 			PlayerTotals known = store.get(name);
-			if (force || known == null || known.isStale(now, maxAge) || store.lacksBossDetail(name))
+			if (force || isDue(known, now, maxAge) || store.lacksBossDetail(name))
 			{
 				lookups.lookupBatch(name, this::saveAndRender, missing -> { });
 			}
