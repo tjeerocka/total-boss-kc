@@ -78,11 +78,11 @@ public class PlayerGains
 		{
 			return firstWithBossDetail;
 		}
-		if (latest.hasBossDetail())
-		{
-			return latest;
-		}
-		return next.hasBossDetail() ? next : null;
+		// The earliest per-boss lookup still known, e.g. yesterday's starting point for Today
+		return Stream.concat(baselines.values().stream(), Stream.of(latest, next))
+			.filter(KillSnapshot::hasBossDetail)
+			.min(Comparator.comparingLong(KillSnapshot::getMillis))
+			.orElse(null);
 	}
 
 	/**

@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -165,6 +166,28 @@ public class PlayerGainsTest
 
 		// Tuesday's kills stay listed after Today has moved on to Wednesday
 		assertEquals(Collections.singletonList(new BossKills("Zulrah", 50)), week.getBosses());
+		assertEquals(20, week.getUnknownKills());
+	}
+
+	@Test
+	public void startsKeepingFromTheEarliestPerBossLookupStillKnown()
+	{
+		LocalDate tuesday = MONDAY.plusDays(1);
+		LocalDate wednesday = MONDAY.plusDays(2);
+		KillSnapshot old = new KillSnapshot(millis(MONDAY), null, Collections.singletonMap(BossCategory.PVM, 100));
+		// Saved by a version that didn't keep the first per-boss lookup yet: only Today's starting point has them
+		Map<GainPeriod, KillSnapshot> baselines = new EnumMap<>(GainPeriod.class);
+		for (GainPeriod period : GainPeriod.values())
+		{
+			baselines.put(period, period == GainPeriod.TODAY ? snapshot(MONDAY, 120) : old);
+		}
+		PlayerGains gains = new PlayerGains(snapshot(tuesday, 177), baselines, null)
+			.record(snapshot(tuesday, 180), UTC)
+			.record(snapshot(wednesday, 190), UTC);
+
+		// Tuesday's 57 kills (and the 3 more) stay listed in Week on Wednesday
+		GainBreakdown week = gains.breakdown(GainPeriod.WEEK, ALL, wednesday, UTC);
+		assertEquals(Collections.singletonList(new BossKills("Zulrah", 70)), week.getBosses());
 		assertEquals(20, week.getUnknownKills());
 	}
 
