@@ -9,8 +9,10 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.Value;
 
 /**
@@ -22,6 +24,11 @@ public class PlayerGains
 {
 	KillSnapshot latest;
 	Map<GainPeriod, KillSnapshot> baselines;
+	/**
+	 * The first lookup with per-boss counts, kept only while some starting point was saved without them, so older
+	 * periods keep showing every boss known since then. Null otherwise.
+	 */
+	KillSnapshot firstWithBossDetail;
 
 	static PlayerGains first(KillSnapshot snapshot)
 	{
@@ -30,7 +37,7 @@ public class PlayerGains
 		{
 			baselines.put(period, snapshot);
 		}
-		return new PlayerGains(snapshot, baselines);
+		return new PlayerGains(snapshot, baselines, null);
 	}
 
 	PlayerGains record(KillSnapshot next, ZoneId zone)
@@ -58,7 +65,24 @@ public class PlayerGains
 			boolean newPeriodStarted = latestDay.isBefore(period.start(nextDay));
 			nextBaselines.put(period, withBossDetail(newPeriodStarted ? newPeriodStart : baselines.get(period)));
 		}
-		return new PlayerGains(next, nextBaselines);
+		return new PlayerGains(next, nextBaselines, firstWithBossDetail(nextBaselines, next));
+	}
+
+	private KillSnapshot firstWithBossDetail(Map<GainPeriod, KillSnapshot> nextBaselines, KillSnapshot next)
+	{
+		if (nextBaselines.values().stream().allMatch(KillSnapshot::hasBossDetail))
+		{
+			return null;
+		}
+		if (firstWithBossDetail != null)
+		{
+			return firstWithBossDetail;
+		}
+		if (latest.hasBossDetail())
+		{
+			return latest;
+		}
+		return next.hasBossDetail() ? next : null;
 	}
 
 	/**
@@ -117,7 +141,8 @@ public class PlayerGains
 
 	private KillSnapshot earliestWithBossDetailSince(KillSnapshot baseline)
 	{
-		return baselines.values().stream()
+		return Stream.concat(baselines.values().stream(), Stream.of(firstWithBossDetail))
+			.filter(Objects::nonNull)
 			.filter(KillSnapshot::hasBossDetail)
 			.filter(snapshot -> snapshot.getMillis() >= baseline.getMillis())
 			.min(Comparator.comparingLong(KillSnapshot::getMillis))

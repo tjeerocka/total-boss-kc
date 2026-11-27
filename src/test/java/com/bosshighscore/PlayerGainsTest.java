@@ -113,9 +113,13 @@ public class PlayerGainsTest
 	public void breakdownUnknownForStartingPointsSavedBeforeIt()
 	{
 		KillSnapshot old = new KillSnapshot(millis(MONDAY), null, Collections.singletonMap(BossCategory.PVM, 100));
-		PlayerGains gains = PlayerGains.first(old).record(snapshot(MONDAY, 130), UTC);
 
-		assertNull(gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+		assertNull(PlayerGains.first(old).breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC));
+
+		PlayerGains gains = PlayerGains.first(old).record(snapshot(MONDAY, 130), UTC);
+		GainBreakdown today = gains.breakdown(GainPeriod.TODAY, ALL, MONDAY, UTC);
+		assertEquals(Collections.emptyList(), today.getBosses());
+		assertEquals(30, today.getUnknownKills());
 		assertEquals(30, gains.gain(GainPeriod.TODAY, ALL, MONDAY, UTC));
 	}
 
@@ -143,6 +147,24 @@ public class PlayerGainsTest
 		GainBreakdown week = gains.breakdown(GainPeriod.WEEK, ALL, tuesday, UTC);
 
 		assertEquals(Collections.singletonList(new BossKills("Zulrah", 30)), week.getBosses());
+		assertEquals(20, week.getUnknownKills());
+	}
+
+	@Test
+	public void olderPeriodKeepsBossesFromDaysBefore()
+	{
+		LocalDate tuesday = MONDAY.plusDays(1);
+		LocalDate wednesday = MONDAY.plusDays(2);
+		KillSnapshot old = new KillSnapshot(millis(MONDAY), null, Collections.singletonMap(BossCategory.PVM, 100));
+		PlayerGains gains = PlayerGains.first(old)
+			.record(snapshot(MONDAY, 120), UTC)
+			.record(snapshot(tuesday, 150), UTC)
+			.record(snapshot(wednesday, 170), UTC);
+
+		GainBreakdown week = gains.breakdown(GainPeriod.WEEK, ALL, wednesday, UTC);
+
+		// Tuesday's kills stay listed after Today has moved on to Wednesday
+		assertEquals(Collections.singletonList(new BossKills("Zulrah", 50)), week.getBosses());
 		assertEquals(20, week.getUnknownKills());
 	}
 
